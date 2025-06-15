@@ -10,19 +10,21 @@ import streamlit.components.v1 as components
 st.set_page_config(layout="centered")
 st.title("📄 صفحة توثيق الفواتير")
 
-INVOICE_PATH = "data/invoices.csv"
-IMAGE_DIR = "data/invoices/"
-os.makedirs(IMAGE_DIR, exist_ok=True)
+INVOICE_IMAGE_DIR = "data/invoices/"
+os.makedirs(INVOICE_IMAGE_DIR, exist_ok=True)
 
-tasks_df = load_df("data/tasks.csv")
+DATA_SHEET_NAME = "app"
+INVOICES_WORKSHEET = "invoices"
+TASKS_WORKSHEET = "tasks"
+
+# تحميل المهام لحساب التكاليف
+tasks_df = load_df(DATA_SHEET_NAME, TASKS_WORKSHEET)
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# حالة لإعادة تشغيل الصفحة
 if "should_rerun" not in st.session_state:
     st.session_state.should_rerun = False
 
-# مفاتيح الجلسة لتفريغ الحقول بعد الإضافة
 if "name_value" not in st.session_state:
     st.session_state.name_value = ""
 if "value_amount" not in st.session_state:
@@ -30,11 +32,19 @@ if "value_amount" not in st.session_state:
 if "upload_key" not in st.session_state:
     st.session_state.upload_key = str(uuid.uuid4())
 
+def load_invoices():
+    df = load_df(DATA_SHEET_NAME, INVOICES_WORKSHEET)
+    if df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(df.columns):
+        df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
+    return df
+
+def save_invoices(df):
+    save_df(df, DATA_SHEET_NAME, INVOICES_WORKSHEET)
+
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
-    image_path = os.path.join(IMAGE_DIR, img_id)
-    
-    # معالجة صيغة الصورة وحجمها
+    image_path = os.path.join(INVOICE_IMAGE_DIR, img_id)
+
     if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image = image.convert("RGB")
     max_width = 600
@@ -44,26 +54,25 @@ def add_invoice(date, name, value, image):
         image = image.resize(new_size)
     image.save(image_path)
 
-    df = load_df(INVOICE_PATH)
-    if df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(df.columns):
-        df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
+    df = load_invoices()
     df.loc[len(df)] = [date, name, value, img_id]
-    save_df(df, INVOICE_PATH)
+    save_invoices(df)
 
 def delete_invoice(idx):
-    df = load_df(INVOICE_PATH)
+    df = load_invoices()
     if df.empty:
         return
     img_file = df.loc[idx, "الصورة"]
-    img_path = os.path.join(IMAGE_DIR, img_file)
+    img_path = os.path.join(INVOICE_IMAGE_DIR, img_file)
     if os.path.exists(img_path):
         os.remove(img_path)
     df.drop(idx, inplace=True)
     df.reset_index(drop=True, inplace=True)
-    save_df(df, INVOICE_PATH)
+    save_invoices(df)
     st.session_state.should_rerun = True
 
-# نموذج إضافة فاتورة
+df = load_invoices()
+
 with st.form("invoice_form"):
     date = st.date_input("تاريخ الفاتورة")
     name = st.text_input("اسم الفاتورة", value=st.session_state.name_value, key="name_input")
@@ -83,13 +92,11 @@ with st.form("invoice_form"):
             add_invoice(date, name, value, img_obj)
             st.success("✅ تمت إضافة الفاتورة")
 
-            # إعادة تعيين القيم لتفريغ الحقول
             st.session_state.name_value = ""
             st.session_state.value_amount = 0.0
-            st.session_state.upload_key = str(uuid.uuid4())  # تغيير المفتاح لمسح الصورة
+            st.session_state.upload_key = str(uuid.uuid4())
             st.session_state.should_rerun = True
 
-# إعادة تشغيل الصفحة بعد الإضافة أو الحذف
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
@@ -98,20 +105,15 @@ if st.session_state.should_rerun:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
 
-# عرض الفواتير
-invoice_df = load_df(INVOICE_PATH)
-if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
-    invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
-
 st.subheader("📑 قائمة الفواتير")
 
-if invoice_df.empty:
+if df.empty:
     st.info("لا توجد فواتير مضافة بعد.")
 else:
-    for idx, row in invoice_df.iterrows():
+    for idx, row in df.iterrows():
         cols = st.columns([1, 5, 1])
         with cols[0]:
-            img_path = os.path.join(IMAGE_DIR, row["الصورة"])
+            img_path = os.path.join(INVOICE_IMAGE_DIR, row["الصورة"])
             if os.path.exists(img_path):
                 st.image(img_path, width=600)
             else:
@@ -137,7 +139,4 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
 
-# ملخص الفواتير
-total_invoices = invoice_df["القيمة"].sum()
-st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
-st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} ريال")
+total_invoices = df["القيمة
