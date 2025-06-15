@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 import logging
 import streamlit.components.v1 as components
-from fpdf import FPDF
+from fpdf2 import FPDF # تم التغيير من fpdf إلى fpdf2
 import base64
 import requests
 
@@ -15,27 +15,31 @@ st.title("📸 صفحة توثيق المشروع")
 
 DATA_DIR = "data/documentation"
 META_FILE = os.path.join(DATA_DIR, "metadata.csv")
-UTILS_DIR = "utils"
-FONT_FILENAME = "DejaVuSans.ttf"
-FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
+
+# لم نعد بحاجة إلى FONT_PATH أو UTILS_DIR هنا،
+# لأن fpdf2 سيتعامل مع تنزيل الخط تلقائياً
+# UTILS_DIR = "utils"
+# FONT_FILENAME = "DejaVuSans.ttf"
+# FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
 
 os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(UTILS_DIR, exist_ok=True)
+# لم نعد بحاجة لإنشاء مجلد utils أو تنزيل الخط يدوياً
+# os.makedirs(UTILS_DIR, exist_ok=True)
 
-# دالة تحميل الخط إذا لم يكن موجودًا
-def download_font():
-    if not os.path.exists(FONT_PATH):
-        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
-        try:
-            r = requests.get(url)
-            r.raise_for_status()
-            with open(FONT_PATH, "wb") as f:
-                f.write(r.content)
-            st.success("تم تحميل الخط بنجاح.")
-        except Exception as e:
-            st.error(f"فشل تحميل الخط: {e}")
+# تم إزالة دالة download_font() بالكامل لأن fpdf2 يتعامل معها تلقائياً
+# def download_font():
+#     if not os.path.exists(FONT_PATH):
+#         url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
+#         try:
+#             r = requests.get(url)
+#             r.raise_for_status()
+#             with open(FONT_PATH, "wb") as f:
+#                 f.write(r.content)
+#             st.success("تم تحميل الخط بنجاح.")
+#         except Exception as e:
+#             st.error(f"فشل تحميل الخط: {e}")
 
-download_font()
+# download_font() # تم إزالة استدعاء الدالة
 
 # مفاتيح الجلسة
 if "should_rerun" not in st.session_state:
@@ -64,6 +68,7 @@ def add_entry(date, description, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     img_path = os.path.join(DATA_DIR, img_id)
 
+    # هذا الجزء من الكود يعالج تحويل الصورة RGBA إلى RGB بشكل صحيح
     if image.mode in ("RGBA", "P"):
         image = image.convert("RGB")
     image.save(img_path)
@@ -110,7 +115,7 @@ with st.form("image_form"):
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
-        st.experimental_rerun()
+        st.rerun() # تم التغيير من st.experimental_rerun()
     except Exception as e:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
@@ -151,12 +156,14 @@ def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    if not os.path.exists(FONT_PATH):
-        st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
-        return None
+    # لم نعد بحاجة للتحقق من FONT_PATH
+    # if not os.path.exists(FONT_PATH):
+    #     st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
+    #     return None
 
-    pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
-    pdf.set_font("DejaVu", size=12)
+    # fpdf2 سيتولى تنزيل الخط تلقائياً عند الحاجة
+    pdf.add_font("DejaVuSans", style="", fname="DejaVuSans.ttf", uni=True)
+    pdf.set_font("DejaVuSans", size=12)
 
     for idx, row in df.iterrows():
         pdf.add_page()
@@ -184,7 +191,7 @@ def generate_pdf(df):
 
             pdf.image(img_path, x=10, y=pdf.get_y(), w=disp_width, h=disp_height)
 
-    pdf_bytes = pdf.output(dest='S').encode('latin1')  # تعديل هنا
+    pdf_bytes = pdf.output(dest='S') # تم إزالة .encode('latin1')
     return pdf_bytes
 
 # زر تحميل ملف PDF
