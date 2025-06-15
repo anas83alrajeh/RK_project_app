@@ -43,27 +43,39 @@ with st.form("task_form", clear_on_submit=True):
 
 st.subheader("📋 قائمة المهام")
 
+box_bg_color = "#f0f0f5"  # لون خلفية المربع
+
 if st.session_state.df.empty:
     st.info("لا توجد مهام حالياً")
 else:
     df_display = st.session_state.df.reset_index(drop=True)
 
-    # استخدم جدول عادي مع زر حذف لكل صف
     for idx, row in df_display.iterrows():
-        cols = st.columns([8, 1])
+        cols = st.columns([9, 1])
         with cols[0]:
-            st.write(f"{row['اسم المهمة']} - العدد: {row['العدد']} - سعر الوحدة: {row['سعر الوحدة']} دولار - التكلفة: {row['التكلفة']:.2f} دولار")
+            task_html = f"""
+            <div style="
+                background-color: {box_bg_color};
+                padding: 15px;
+                margin-bottom: 10px;
+                border-radius: 8px;
+                direction: rtl;
+                text-align: right;
+                font-family: Arial, sans-serif;
+                box-shadow: 1px 1px 5px rgba(0,0,0,0.1);
+            ">
+                <div><strong>اسم المهمة:</strong> {row['اسم المهمة']}</div>
+                <div><strong>العدد:</strong> {row['العدد']}</div>
+                <div><strong>سعر الوحدة:</strong> {row['سعر الوحدة']} دولار</div>
+                <div><strong>التكلفة:</strong> {row['التكلفة']:.2f} دولار</div>
+            </div>
+            """
+            st.markdown(task_html, unsafe_allow_html=True)
         with cols[1]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
-                # حذف المهمة من DataFrame في session_state
                 st.session_state.df = st.session_state.df.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.df)
-                st.experimental_rerun_flag = True  # علم لإعادة تحميل بعد الحلقة
-
-# إعادة تحميل الصفحة بعد الحلقة إذا علمت بالضرورة
-if "st.experimental_rerun_flag" in st.session_state and st.session_state.st.experimental_rerun_flag:
-    st.session_state.st.experimental_rerun_flag = False
-    st.experimental_rerun()
+                st.experimental_rerun()
 
 total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
 st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
