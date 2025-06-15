@@ -9,13 +9,30 @@ import streamlit.components.v1 as components
 from fpdf import FPDF
 import base64
 import io
+import requests
 
 st.set_page_config(layout="centered")
 st.title("📸 صفحة توثيق المشروع")
 
 DATA_DIR = "data/documentation"
 META_FILE = os.path.join(DATA_DIR, "metadata.csv")
+UTILS_DIR = "utils"
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(UTILS_DIR, exist_ok=True)
+
+FONT_PATH = os.path.join(UTILS_DIR, "DejaVuSans.ttf")
+
+# تحميل خط DejaVuSans إذا غير موجود
+if not os.path.exists(FONT_PATH):
+    font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+    try:
+        r = requests.get(font_url)
+        r.raise_for_status()
+        with open(FONT_PATH, "wb") as f:
+            f.write(r.content)
+        st.success("تم تحميل خط DejaVuSans.ttf بنجاح.")
+    except Exception as e:
+        st.error(f"فشل تحميل الخط: {e}")
 
 # مفاتيح الجلسة
 if "should_rerun" not in st.session_state:
@@ -130,10 +147,11 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
-# دالة إنشاء ملف PDF (بدون استخدام خط خارجي)
+# دالة إنشاء ملف PDF مع دعم Unicode وخط خارجي
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
-    pdf.set_font("Arial", size=12)  # الخط الافتراضي (قد لا يدعم العربية بالكامل)
+    pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
+    pdf.set_font("DejaVu", size=12)
 
     for idx, row in df.iterrows():
         pdf.add_page()
@@ -145,7 +163,9 @@ def generate_pdf(df):
             pdf.cell(0, 10, "❌ الصورة غير موجودة", ln=True)
 
         pdf.set_xy(10, 10)
-        pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
+        # تأكد من إزالة الإيموجي أو التعامل معها بحذر إن استمر الخطأ
+        text = f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}"
+        pdf.multi_cell(0, 10, text, align='R')
 
     pdf_output = io.BytesIO()
     pdf.output(pdf_output)
