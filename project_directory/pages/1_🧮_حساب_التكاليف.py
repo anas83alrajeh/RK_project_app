@@ -17,9 +17,11 @@ def load_data():
 def save_data(df):
     save_df(df, DATA_PATH)
 
-# تحميل البيانات مرة واحدة وتخزينها في session_state
 if "df" not in st.session_state:
     st.session_state.df = load_data()
+
+if "delete_flag" not in st.session_state:
+    st.session_state.delete_flag = False
 
 df = st.session_state.df.copy()
 
@@ -43,7 +45,8 @@ with st.form("task_form", clear_on_submit=True):
 
 st.subheader("📋 قائمة المهام")
 
-box_bg_color = "#f0f0f5"  # لون خلفية المربع
+box_bg_color = "#f5f5f5"  # خلفية رمادي فاتح
+text_color = "#000000"    # كتابة بالأسود
 
 if st.session_state.df.empty:
     st.info("لا توجد مهام حالياً")
@@ -56,6 +59,7 @@ else:
             task_html = f"""
             <div style="
                 background-color: {box_bg_color};
+                color: {text_color};
                 padding: 15px;
                 margin-bottom: 10px;
                 border-radius: 8px;
@@ -75,7 +79,12 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 st.session_state.df = st.session_state.df.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.df)
-                st.experimental_rerun()
+                st.session_state.delete_flag = True  # علّم الحاجة لإعادة تحميل الصفحة
+
+# بعد الحلقة، إعادة تحميل الصفحة إذا كان علم الحذف True
+if st.session_state.delete_flag:
+    st.session_state.delete_flag = False
+    st.experimental_rerun()
 
 total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
 st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
