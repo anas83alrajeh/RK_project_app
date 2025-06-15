@@ -8,7 +8,7 @@ st.title("🗓️ مراحل إنجاز المشروع")
 DATA_PATH = "data/project_phases.csv"
 os.makedirs("data", exist_ok=True)
 
-# بيانات المراحل الافتراضية
+# جدول المراحل مع الأعمدة التي سيدخلها المستخدم
 default_phases = [
     {
         "رقم المرحلة": 1,
@@ -84,9 +84,20 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_PATH, index=False, encoding="utf-8")
 
+def safe_to_date(value):
+    """
+    تحول القيمة لقيمة تاريخ صالحة أو None لتجنب الأخطاء.
+    """
+    try:
+        if pd.isna(value) or value == "" or value is None:
+            return None
+        dt = pd.to_datetime(value)
+        return dt.date()
+    except Exception:
+        return None
+
 df = load_data()
 
-# تنسيق CSS للمراحل
 st.markdown(
     """
     <style>
@@ -113,26 +124,22 @@ st.markdown(
 for idx, row in df.iterrows():
     st.markdown(f'<div class="phase-box">', unsafe_allow_html=True)
     st.markdown(f'<div class="phase-title">المرحلة {row["رقم المرحلة"]}: {row["اسم المرحلة"]}</div>', unsafe_allow_html=True)
-    st.markdown(
-        f"<b>الوصف:</b> {row['الوصف']}<br><b>المهام المرتبطة:</b> {row['المهام المرتبطة بالمرحلة']}", 
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<b>الوصف:</b> {row['الوصف']}<br><b>المهام المرتبطة:</b> {row['المهام المرتبطة بالمرحلة']}", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
         df.at[idx, "تاريخ البدء"] = st.date_input(
             f"تاريخ البدء للمرحلة {row['رقم المرحلة']}",
-            value=pd.to_datetime(row["تاريخ البدء"]) if row["تاريخ البدء"] else None,
+            value=safe_to_date(row["تاريخ البدء"]),
             key=f"start_{idx}"
         )
     with col2:
         df.at[idx, "تاريخ النهاية"] = st.date_input(
             f"تاريخ النهاية للمرحلة {row['رقم المرحلة']}",
-            value=pd.to_datetime(row["تاريخ النهاية"]) if row["تاريخ النهاية"] else None,
+            value=safe_to_date(row["تاريخ النهاية"]),
             key=f"end_{idx}"
         )
     with col3:
-        # حساب المدة تلقائياً
         try:
             start = pd.to_datetime(df.at[idx, "تاريخ البدء"])
             end = pd.to_datetime(df.at[idx, "تاريخ النهاية"])
