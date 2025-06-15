@@ -8,7 +8,6 @@ import logging
 import streamlit.components.v1 as components
 from fpdf import FPDF
 import base64
-import io
 import requests
 
 st.set_page_config(layout="centered")
@@ -185,10 +184,8 @@ def generate_pdf(df):
 
             pdf.image(img_path, x=10, y=pdf.get_y(), w=disp_width, h=disp_height)
 
-    pdf_output = io.BytesIO()
-    pdf.output(pdf_output)
-    pdf_output.seek(0)
-    return pdf_output.read()
+    pdf_bytes = pdf.output(dest='S').encode('latin1')  # تعديل هنا
+    return pdf_bytes
 
 # زر تحميل ملف PDF
 st.markdown("---")
