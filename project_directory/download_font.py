@@ -1,6 +1,15 @@
+import os
+import requests
+import streamlit as st
+
+UTILS_DIR = "utils"
+FONT_FILENAME = "DejaVuSans.ttf"
+FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
+
 def download_font():
     if not os.path.exists(FONT_PATH):
-        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
+        # تعديل رابط تحميل الخط إلى رابط صالح
+        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
         try:
             r = requests.get(url)
             r.raise_for_status()
