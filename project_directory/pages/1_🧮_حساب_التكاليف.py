@@ -20,6 +20,9 @@ def save_data(df):
 if "refresh" not in st.session_state:
     st.session_state.refresh = False
 
+if "delete_index" not in st.session_state:
+    st.session_state.delete_index = None
+
 # تحميل البيانات
 df = load_data()
 
@@ -40,12 +43,7 @@ with st.form("task_form", clear_on_submit=True):
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(df)
             st.success("تمت الإضافة")
-            st.session_state.refresh = True  # علامة لتحديث البيانات بعد الإضافة
-
-# إعادة تحميل البيانات عند الحاجة
-if st.session_state.refresh:
-    df = load_data()
-    st.session_state.refresh = False
+            st.session_state.refresh = True
 
 st.subheader("📋 قائمة المهام")
 
@@ -57,15 +55,27 @@ else:
 
     st.markdown("---")
     st.write("**لحذف مهمة، اضغط على زر الحذف المقابل:**")
+
     for idx, row in df.iterrows():
         cols = st.columns([8, 1])
         with cols[0]:
             st.write(f"{row['اسم المهمة']} - العدد: {row['العدد']} - سعر الوحدة: {row['سعر الوحدة']} دولار - التكلفة: {row['التكلفة']:.2f} دولار")
         with cols[1]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
-                df = df.drop(idx).reset_index(drop=True)
-                save_data(df)
-                st.experimental_rerun()
+                st.session_state.delete_index = idx
+                st.session_state.refresh = True
+
+# تنفيذ الحذف خارج الحلقة لتجنب مشاكل إعادة التشغيل في الحلقة نفسها
+if st.session_state.delete_index is not None:
+    df = df.drop(st.session_state.delete_index).reset_index(drop=True)
+    save_data(df)
+    st.session_state.delete_index = None
+
+# إعادة تحميل البيانات إذا لزم الأمر
+if st.session_state.refresh:
+    df = load_data()
+    st.session_state.refresh = False
+    st.experimental_rerun()
 
 if not df.empty:
     total = df["التكلفة"].sum()
