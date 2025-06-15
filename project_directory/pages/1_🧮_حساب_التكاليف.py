@@ -21,19 +21,23 @@ def save_data(df):
 df = load_data()
 
 st.subheader("➕ إضافة مهمة")
-with st.form("task_form"):
+
+with st.form("task_form", clear_on_submit=True):  # <-- هنا تفرغ الحقول تلقائياً عند الإرسال
     name = st.text_input("اسم المهمة")
     count = st.number_input("العدد", min_value=1, value=1)
     unit_price = st.number_input("سعر الوحدة", min_value=0.0)
     submitted = st.form_submit_button("إضافة المهمة")
 
     if submitted:
-        cost = unit_price * count
-        new_row = {"اسم المهمة": name, "العدد": count, "سعر الوحدة": unit_price, "التكلفة": cost}
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)  # تعديل هنا
-        save_data(df)
-        st.success("تمت الإضافة")
-        st.experimental_rerun()
+        if name.strip() == "":
+            st.error("يرجى إدخال اسم المهمة")
+        else:
+            cost = unit_price * count
+            new_row = {"اسم المهمة": name, "العدد": count, "سعر الوحدة": unit_price, "التكلفة": cost}
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            save_data(df)
+            st.success("تمت الإضافة")
+            st.experimental_rerun()  # لإعادة تحميل الصفحة مع تحديث البيانات
 
 st.subheader("📋 قائمة المهام")
 
