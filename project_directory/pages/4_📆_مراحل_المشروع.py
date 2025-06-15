@@ -8,7 +8,7 @@ st.title("🗓️ مراحل إنجاز المشروع")
 DATA_PATH = "data/project_phases.csv"
 os.makedirs("data", exist_ok=True)
 
-# جدول المراحل مع الأعمدة التي سيدخلها المستخدم
+# بيانات المراحل الافتراضية
 default_phases = [
     {
         "رقم المرحلة": 1,
@@ -86,7 +86,7 @@ def save_data(df):
 
 df = load_data()
 
-# عرض الجدول مع الإدخال للمستخدم فقط في تواريخ البداية والنهاية
+# تنسيق CSS للمراحل
 st.markdown(
     """
     <style>
@@ -113,17 +113,24 @@ st.markdown(
 for idx, row in df.iterrows():
     st.markdown(f'<div class="phase-box">', unsafe_allow_html=True)
     st.markdown(f'<div class="phase-title">المرحلة {row["رقم المرحلة"]}: {row["اسم المرحلة"]}</div>', unsafe_allow_html=True)
-    st.markdown(f"<b>الوصف:</b> {row['الوصف']}<br><b>المهام المرتبطة:</b> {row['المهام المرتبطة بالمرحلة']}", unsafe_allow_html=True)
+    st.markdown(
+        f"<b>الوصف:</b> {row['الوصف']}<br><b>المهام المرتبطة:</b> {row['المهام المرتبطة بالمرحلة']}", 
+        unsafe_allow_html=True
+    )
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        df.at[idx, "تاريخ البدء"] = st.date_input(f"تاريخ البدء للمرحلة {row['رقم المرحلة']}", 
-                                                 value=pd.to_datetime(row["تاريخ البدء"]) if row["تاريخ البدء"] else None,
-                                                 key=f"start_{idx}")
+        df.at[idx, "تاريخ البدء"] = st.date_input(
+            f"تاريخ البدء للمرحلة {row['رقم المرحلة']}",
+            value=pd.to_datetime(row["تاريخ البدء"]) if row["تاريخ البدء"] else None,
+            key=f"start_{idx}"
+        )
     with col2:
-        df.at[idx, "تاريخ النهاية"] = st.date_input(f"تاريخ النهاية للمرحلة {row['رقم المرحلة']}", 
-                                                    value=pd.to_datetime(row["تاريخ النهاية"]) if row["تاريخ النهاية"] else None,
-                                                    key=f"end_{idx}")
+        df.at[idx, "تاريخ النهاية"] = st.date_input(
+            f"تاريخ النهاية للمرحلة {row['رقم المرحلة']}",
+            value=pd.to_datetime(row["تاريخ النهاية"]) if row["تاريخ النهاية"] else None,
+            key=f"end_{idx}"
+        )
     with col3:
         # حساب المدة تلقائياً
         try:
@@ -136,7 +143,12 @@ for idx, row in df.iterrows():
                 df.at[idx, "المدة الزمنية"] = ""
         except Exception:
             df.at[idx, "المدة الزمنية"] = ""
-        st.text_input(f"المدة الزمنية (بالأيام)", value=str(df.at[idx, "المدة الزمنية"]), disabled=True, key=f"duration_{idx}")
+        st.text_input(
+            f"المدة الزمنية (بالأيام)", 
+            value=str(df.at[idx, "المدة الزمنية"]), 
+            disabled=True, 
+            key=f"duration_{idx}"
+        )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
