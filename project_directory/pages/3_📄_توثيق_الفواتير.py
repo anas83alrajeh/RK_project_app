@@ -12,17 +12,16 @@ INVOICE_PATH = "data/invoices.csv"
 IMAGE_DIR = "data/invoices/"
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
-# تحميل بيانات المهام وحساب مجموع تكلفتها
+# تحميل بيانات المهام وحساب مجموع التكلفة
 tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# تحميل الفواتير أو إنشاء DataFrame فارغ
+# تحميل بيانات الفواتير مع التأكد من وجود الأعمدة
 invoice_df = load_df(INVOICE_PATH)
-if invoice_df.empty or set(invoice_df.columns) != {"التاريخ", "اسم الفاتورة", "القيمة", "الصورة"}:
+if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
     invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
 
-# دالة إضافة فاتورة جديدة
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     image_path = os.path.join(IMAGE_DIR, img_id)
@@ -30,16 +29,17 @@ def add_invoice(date, name, value, image):
     invoice_df.loc[len(invoice_df)] = [date, name, value, img_id]
     save_df(invoice_df, INVOICE_PATH)
 
-# دالة حذف فاتورة
-def delete_invoice(index):
-    img_file = invoice_df.loc[index, "الصورة"]
+def delete_invoice(idx):
+    # حذف صورة الفاتورة من القرص
+    img_file = invoice_df.loc[idx, "الصورة"]
     img_path = os.path.join(IMAGE_DIR, img_file)
     if os.path.exists(img_path):
         os.remove(img_path)
-    invoice_df.drop(index, inplace=True)
+    # حذف الصف من DataFrame وحفظه
+    invoice_df.drop(idx, inplace=True)
     invoice_df.reset_index(drop=True, inplace=True)
     save_df(invoice_df, INVOICE_PATH)
-    st.rerun()
+    st.experimental_rerun()
 
 # نموذج إضافة فاتورة
 with st.form("invoice_form"):
@@ -51,14 +51,13 @@ with st.form("invoice_form"):
 
     if submit:
         if not img:
-            st.error("يرجى رفع صورة للفاتورة.")
+            st.error("يرجى رفع صورة الفاتورة.")
         else:
-            img = Image.open(img)
-            add_invoice(date, name, value, img)
+            img_obj = Image.open(img)
+            add_invoice(date, name, value, img_obj)
             st.success("✅ تمت إضافة الفاتورة")
-            st.rerun()
+            st.experimental_rerun()
 
-# عرض الفواتير الحالية
 st.subheader("📑 قائمة الفواتير")
 
 if invoice_df.empty:
@@ -75,9 +74,9 @@ else:
         with cols[1]:
             st.markdown(
                 f"""
-                <div style="direction: rtl; text-align: right; background-color: #f8f8f8; padding: 10px; border-radius: 8px;">
+                <div style="direction: rtl; text-align: right; background-color: #f0f0f0; padding: 10px; border-radius: 8px;">
                     <strong>📅 التاريخ:</strong> {row['التاريخ']}<br>
-                    <strong>📄 الاسم:</strong> {row['اسم الفاتورة']}<br>
+                    <strong>📄 اسم الفاتورة:</strong> {row['اسم الفاتورة']}<br>
                     <strong>💵 القيمة:</strong> {row['القيمة']:,.2f} ريال
                 </div>
                 """,
@@ -87,7 +86,7 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
 
-    # إجمالي الفواتير والمبلغ المتبقي
-    total_invoices = invoice_df["القيمة"].sum()
-    st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
-    st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} ريال")
+# حساب وعرض المجموع والمبلغ المتبقي
+total_invoices = invoice_df["القيمة"].sum()
+st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
+st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} ريال")
