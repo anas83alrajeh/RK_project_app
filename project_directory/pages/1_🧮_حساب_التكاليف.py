@@ -17,12 +17,15 @@ def load_data():
 def save_data(df):
     save_df(df, DATA_PATH)
 
+if "refresh" not in st.session_state:
+    st.session_state.refresh = False
+
 # تحميل البيانات
 df = load_data()
 
 st.subheader("➕ إضافة مهمة")
 
-with st.form("task_form", clear_on_submit=True):  # <-- هنا تفرغ الحقول تلقائياً عند الإرسال
+with st.form("task_form", clear_on_submit=True):
     name = st.text_input("اسم المهمة")
     count = st.number_input("العدد", min_value=1, value=1)
     unit_price = st.number_input("سعر الوحدة", min_value=0.0)
@@ -37,7 +40,12 @@ with st.form("task_form", clear_on_submit=True):  # <-- هنا تفرغ الحق
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(df)
             st.success("تمت الإضافة")
-            st.experimental_rerun()  # لإعادة تحميل الصفحة مع تحديث البيانات
+            st.session_state.refresh = True  # علامة لتحديث البيانات بعد الإضافة
+
+# إعادة تحميل البيانات عند الحاجة
+if st.session_state.refresh:
+    df = load_data()
+    st.session_state.refresh = False
 
 st.subheader("📋 قائمة المهام")
 
