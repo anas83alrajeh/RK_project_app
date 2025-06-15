@@ -17,11 +17,9 @@ def load_data():
 def save_data(df):
     save_df(df, DATA_PATH)
 
-# تحميل البيانات للـ session_state
 if "df" not in st.session_state:
     st.session_state.df = load_data()
 
-# علم لإعادة التشغيل بعد التعديل
 if "need_rerun" not in st.session_state:
     st.session_state.need_rerun = False
 
@@ -44,7 +42,7 @@ with st.form("task_form", clear_on_submit=True):
             st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(st.session_state.df)
             st.success("تمت الإضافة")
-            st.session_state.need_rerun = True  # علم لإعادة التشغيل
+            st.session_state.need_rerun = True  # علم إعادة التشغيل
 
 st.subheader("📋 قائمة المهام")
 
@@ -82,14 +80,13 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 st.session_state.df = st.session_state.df.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.df)
-                st.session_state.need_rerun = True  # علم لإعادة التشغيل
+                st.session_state.need_rerun = True  # علم إعادة التشغيل
 
-# في نهاية الصفحة تحقق هل نحتاج لإعادة التشغيل
+# في نهاية الصفحة فقط نقوم بإعادة التشغيل مرة واحدة إذا تم التعديل
 if st.session_state.need_rerun:
     st.session_state.need_rerun = False
     st.experimental_rerun()
 
-# حساب وعرض المجموع والتكلفة لكل متر مربع
 total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
 st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
 
