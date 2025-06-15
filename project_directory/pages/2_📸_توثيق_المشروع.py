@@ -6,6 +6,9 @@ import uuid
 from datetime import datetime
 import logging
 import streamlit.components.v1 as components
+from fpdf import FPDF
+import base64
+import io
 
 st.set_page_config(layout="centered")
 st.title("📸 صفحة توثيق المشروع")
@@ -46,7 +49,6 @@ def add_entry(date, description, image):
 
     if image.mode in ("RGBA", "P"):
         image = image.convert("RGB")
-    # لا تغيير في الحجم — الصورة تحفظ كما هي
     image.save(img_path)
 
     df = load_df()
@@ -71,7 +73,7 @@ def delete_entry(idx):
     save_df(df)
     st.session_state.should_rerun = True
 
-# النموذج
+# النموذج لإضافة صورة جديدة
 st.subheader("➕ إضافة صورة جديدة")
 with st.form("image_form"):
     date = st.date_input("تاريخ الإضافة", value=datetime.today())
@@ -124,32 +126,33 @@ else:
                 """,
                 unsafe_allow_html=True
             )
-from fpdf import FPDF
-import base64
-import io
 
-# دالة إنشاء ملف PDF
+        with cols[2]:
+            if st.button("🗑️ حذف", key=f"delete_{idx}"):
+                delete_entry(idx)
+
+# دالة إنشاء ملف PDF مع دعم العربية
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
-    pdf.add_font('DejaVu', '', 'utils/DejaVuSans.ttf', uni=True)  # خط يدعم العربية
+    pdf.add_font('DejaVu', '', 'utils/DejaVuSans.ttf', uni=True)  # تأكد من وجود الخط في هذا المسار
     pdf.set_font("DejaVu", size=12)
 
     for idx, row in df.iterrows():
         pdf.add_page()
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
-            # إعادة تحجيم الصورة لتناسب A4
+            # إعادة تحجيم الصورة لتناسب صفحة A4 مع هامش 10 مم
             pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
 
-        # إضافة النصوص
         pdf.set_xy(10, 10)
         pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
 
     pdf_output = io.BytesIO()
     pdf.output(pdf_output)
-    return pdf_output.getvalue()
+    pdf_output.seek(0)
+    return pdf_output.read()
 
-# زر التحميل
+# زر تحميل PDF
 st.markdown("---")
 st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
 if st.button("📄 تنزيل PDF"):
@@ -160,7 +163,3 @@ if st.button("📄 تنزيل PDF"):
         b64 = base64.b64encode(pdf_bytes).decode()
         href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
         st.markdown(href, unsafe_allow_html=True)
-
-        with cols[2]:
-            if st.button("🗑️ حذف", key=f"delete_{idx}"):
-                delete_entry(idx)
