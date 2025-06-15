@@ -36,15 +36,19 @@ with st.form("task_form", clear_on_submit=True):
             st.error("يرجى إدخال اسم المهمة")
         else:
             cost = unit_price * count
-            new_row = {"اسم المهمة": name, "العدد": count, "سعر الوحدة": unit_price, "التكلفة": cost}
+            new_row = {
+                "اسم المهمة": name,
+                "العدد": count,
+                "سعر الوحدة": unit_price,
+                "التكلفة": cost
+            }
             st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(st.session_state.df)
-            st.session_state.need_rerun = True
-            st.stop()  # إيقاف التنفيذ مؤقتًا حتى يتم إعادة تحميل الصفحة
+            st.rerun()  # إعادة تحميل الصفحة مباشرة بدون خطأ
 
 st.subheader("📋 قائمة المهام")
 
-box_bg_color = "#f0f0f0"  # خلفية رمادية
+box_bg_color = "#f0f0f0"  # خلفية رمادية فاتحة
 text_color = "#000000"    # نص أسود
 
 if st.session_state.df.empty:
@@ -70,8 +74,7 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 st.session_state.df = st.session_state.df.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.df)
-                st.session_state.need_rerun = True
-                st.stop()
+                st.rerun()  # الحل الآمن لإعادة تحميل الصفحة
 
 # 💰 إجمالي التكلفة
 total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
@@ -82,8 +85,3 @@ area = st.number_input("📐 المساحة الكلية بالمتر المرب
 if area and total > 0:
     cost_per_meter = total / area
     st.markdown(f"### 💸 تكلفة المتر المربع: {cost_per_meter:,.2f} دولار")
-
-# ✅ إعادة تحميل الصفحة عند الحاجة
-if st.session_state.get("need_rerun", False):
-    st.session_state.need_rerun = False
-    st.experimental_rerun()
