@@ -17,14 +17,11 @@ def load_data():
 def save_data(df):
     save_df(df, DATA_PATH)
 
-if "refresh" not in st.session_state:
-    st.session_state.refresh = False
+# نستخدم st.session_state لتخزين البيانات مؤقتًا لتجنب مشاكل إعادة التحميل
+if "df" not in st.session_state:
+    st.session_state.df = load_data()
 
-if "delete_index" not in st.session_state:
-    st.session_state.delete_index = None
-
-# تحميل البيانات
-df = load_data()
+df = st.session_state.df.copy()
 
 st.subheader("➕ إضافة مهمة")
 
@@ -40,47 +37,35 @@ with st.form("task_form", clear_on_submit=True):
         else:
             cost = unit_price * count
             new_row = {"اسم المهمة": name, "العدد": count, "سعر الوحدة": unit_price, "التكلفة": cost}
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-            save_data(df)
+            st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_row])], ignore_index=True)
+            save_data(st.session_state.df)
             st.success("تمت الإضافة")
-            st.session_state.refresh = True
 
 st.subheader("📋 قائمة المهام")
 
-if df.empty:
+if st.session_state.df.empty:
     st.info("لا توجد مهام حالياً")
 else:
-    df = df.reset_index(drop=True)
-    st.dataframe(df)
+    df_display = st.session_state.df.reset_index(drop=True)
+    st.dataframe(df_display)
 
     st.markdown("---")
     st.write("**لحذف مهمة، اضغط على زر الحذف المقابل:**")
 
-    for idx, row in df.iterrows():
+    for idx, row in df_display.iterrows():
         cols = st.columns([8, 1])
         with cols[0]:
             st.write(f"{row['اسم المهمة']} - العدد: {row['العدد']} - سعر الوحدة: {row['سعر الوحدة']} دولار - التكلفة: {row['التكلفة']:.2f} دولار")
         with cols[1]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
-                st.session_state.delete_index = idx
-                st.session_state.refresh = True
+                st.session_state.df = st.session_state.df.drop(idx).reset_index(drop=True)
+                save_data(st.session_state.df)
+                st.experimental_rerun()  # نستخدمها هنا بحذر لإعادة تحميل الصفحة بعد الحذف
 
-# تنفيذ الحذف خارج الحلقة لتجنب مشاكل إعادة التشغيل في الحلقة نفسها
-if st.session_state.delete_index is not None:
-    df = df.drop(st.session_state.delete_index).reset_index(drop=True)
-    save_data(df)
-    st.session_state.delete_index = None
+total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
+st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
 
-# إعادة تحميل البيانات إذا لزم الأمر
-if st.session_state.refresh:
-    df = load_data()
-    st.session_state.refresh = False
-    st.experimental_rerun()
-
-if not df.empty:
-    total = df["التكلفة"].sum()
-    st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
-    area = st.number_input("📐 المساحة الكلية بالمتر المربع", min_value=1.0)
-    if area:
-        cost_per_meter = total / area
-        st.markdown(f"### 💸 تكلفة المتر المربع: {cost_per_meter:,.2f} دولار")
+area = st.number_input("📐 المساحة الكلية بالمتر المربع", min_value=1.0)
+if area and total > 0:
+    cost_per_meter = total / area
+    st.markdown(f"### 💸 تكلفة المتر المربع: {cost_per_meter:,.2f} دولار")
