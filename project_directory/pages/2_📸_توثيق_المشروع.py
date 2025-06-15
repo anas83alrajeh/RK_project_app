@@ -130,28 +130,15 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
-# دالة إنشاء ملف PDF
+# دالة إنشاء ملف PDF (بدون استخدام خط خارجي)
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
-
-    # مسار الخط مع التحقق من وجوده
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(base_dir, 'utils', 'DejaVuSans.ttf')
-
-    st.write("مسار الخط:", font_path)
-    st.write("هل الخط موجود؟", os.path.exists(font_path))
-
-    if not os.path.exists(font_path):
-        raise FileNotFoundError(f"خط DejaVuSans.ttf غير موجود في المسار: {font_path}")
-
-    pdf.add_font('DejaVu', '', font_path, uni=True)
-    pdf.set_font("DejaVu", size=12)
+    pdf.set_font("Arial", size=12)  # الخط الافتراضي (قد لا يدعم العربية بالكامل)
 
     for idx, row in df.iterrows():
         pdf.add_page()
-        img_path = os.path.join(base_dir, 'data', 'documentation', row["الصورة"])
+        img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
-            # عرض الصورة مع تحديد عرض الصفحة مع ترك هامش 10 مم
             pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
         else:
             pdf.set_xy(10, 30)
