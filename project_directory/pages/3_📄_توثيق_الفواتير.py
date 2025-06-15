@@ -26,7 +26,7 @@ def add_invoice(date, name, value, image):
     image_path = os.path.join(IMAGE_DIR, img_id)
     if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image = image.convert("RGB")
-    max_width = 400  # تكبير الصورة عند الحفظ إلى 400 بكسل
+    max_width = 600  # تكبير الصورة إلى عرض 600 بكسل
     if image.width > max_width:
         ratio = max_width / image.width
         new_size = (max_width, int(image.height * ratio))
@@ -52,20 +52,38 @@ def delete_invoice(idx):
     save_df(df, INVOICE_PATH)
     st.session_state.should_rerun = True
 
+# تعريف قيم افتراضية للحقل أو إعادة التعيين بعد الإضافة
+if "name" not in st.session_state:
+    st.session_state.name = ""
+if "value" not in st.session_state:
+    st.session_state.value = 0.0
+if "img" not in st.session_state:
+    st.session_state.img = None
+
 with st.form("invoice_form"):
     date = st.date_input("تاريخ الفاتورة")
-    name = st.text_input("اسم الفاتورة")
-    value = st.number_input("القيمة", min_value=0.0)
-    img = st.file_uploader("صورة الفاتورة", type=["jpg", "jpeg", "png"])
+    name = st.text_input("اسم الفاتورة", value=st.session_state.name, key="name_input")
+    value = st.number_input("القيمة", min_value=0.0, value=st.session_state.value, key="value_input")
+    img = st.file_uploader("صورة الفاتورة", type=["jpg", "jpeg", "png"], key="img_uploader")
     submit = st.form_submit_button("إضافة الفاتورة")
 
     if submit:
         if not img:
             st.error("يرجى رفع صورة الفاتورة.")
+        elif name.strip() == "":
+            st.error("يرجى كتابة اسم الفاتورة.")
+        elif value <= 0:
+            st.error("القيمة يجب أن تكون أكبر من صفر.")
         else:
             img_obj = Image.open(img)
             add_invoice(date, name, value, img_obj)
             st.success("✅ تمت إضافة الفاتورة")
+
+            # تفريغ الحقول بعد الإضافة
+            st.session_state.name = ""
+            st.session_state.value = 0.0
+            st.session_state.img = None
+
             st.session_state.should_rerun = True
 
 if st.session_state.should_rerun:
@@ -90,7 +108,7 @@ else:
         with cols[0]:
             img_path = os.path.join(IMAGE_DIR, row["الصورة"])
             if os.path.exists(img_path):
-                st.image(img_path, width=400)  # عرض الصورة 400 بكسل
+                st.image(img_path, width=600)  # حجم أكبر 600 بكسل
             else:
                 st.warning("❌ صورة غير موجودة")
         with cols[1]:
