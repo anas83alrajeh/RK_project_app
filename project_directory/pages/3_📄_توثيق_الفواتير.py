@@ -12,12 +12,10 @@ INVOICE_PATH = "data/invoices.csv"
 IMAGE_DIR = "data/invoices/"
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
-# تحميل بيانات المهام وحساب مجموع التكلفة
 tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# تحميل بيانات الفواتير مع التأكد من وجود الأعمدة
 invoice_df = load_df(INVOICE_PATH)
 if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
     invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
@@ -25,26 +23,32 @@ if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "ا
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     image_path = os.path.join(IMAGE_DIR, img_id)
-    # تحويل الصورة إلى RGB قبل الحفظ لتجنب مشاكل حفظ PNG مع شفافية بصيغة JPG
+    # تصغير الصورة إلى عرض 200 بكسل (يمكن تعديل الحجم حسب الحاجة)
     if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image = image.convert("RGB")
+    max_width = 200
+    if image.width > max_width:
+        ratio = max_width / image.width
+        new_size = (max_width, int(image.height * ratio))
+        image = image.resize(new_size)
     image.save(image_path)
     invoice_df.loc[len(invoice_df)] = [date, name, value, img_id]
     save_df(invoice_df, INVOICE_PATH)
 
 def delete_invoice(idx):
-    # حذف صورة الفاتورة من القرص
     img_file = invoice_df.loc[idx, "الصورة"]
     img_path = os.path.join(IMAGE_DIR, img_file)
     if os.path.exists(img_path):
         os.remove(img_path)
-    # حذف الصف من DataFrame وحفظه
     invoice_df.drop(idx, inplace=True)
     invoice_df.reset_index(drop=True, inplace=True)
     save_df(invoice_df, INVOICE_PATH)
     st.experimental_rerun()
 
-# نموذج إضافة فاتورة
+# نستخدم هذه العلامة لتفعيل إعادة تشغيل الصفحة بعد الإضافة
+if "rerun_after_add" not in st.session_state:
+    st.session_state.rerun_after_add = False
+
 with st.form("invoice_form"):
     date = st.date_input("تاريخ الفاتورة")
     name = st.text_input("اسم الفاتورة")
@@ -59,7 +63,11 @@ with st.form("invoice_form"):
             img_obj = Image.open(img)
             add_invoice(date, name, value, img_obj)
             st.success("✅ تمت إضافة الفاتورة")
-            st.experimental_rerun()
+            st.session_state.rerun_after_add = True
+
+if st.session_state.rerun_after_add:
+    st.session_state.rerun_after_add = False
+    st.experimental_rerun()
 
 st.subheader("📑 قائمة الفواتير")
 
@@ -77,7 +85,13 @@ else:
         with cols[1]:
             st.markdown(
                 f"""
-                <div style="direction: rtl; text-align: right; background-color: #f0f0f0; padding: 10px; border-radius: 8px;">
+                <div style="
+                    direction: rtl; 
+                    text-align: right; 
+                    background-color: black; 
+                    color: white; 
+                    padding: 10px; 
+                    border-radius: 8px;">
                     <strong>📅 التاريخ:</strong> {row['التاريخ']}<br>
                     <strong>📄 اسم الفاتورة:</strong> {row['اسم الفاتورة']}<br>
                     <strong>💵 القيمة:</strong> {row['القيمة']:,.2f} ريال
@@ -89,7 +103,6 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
 
-# حساب وعرض المجموع والمبلغ المتبقي
 total_invoices = invoice_df["القيمة"].sum()
 st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
 st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} ريال")
