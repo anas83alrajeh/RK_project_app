@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from PIL import Image
 import uuid
+# assuming utils.helpers contains load_df and save_df functions
 from utils.helpers import load_df, save_df
 
 st.set_page_config(layout="centered")
@@ -70,13 +71,16 @@ with st.form("invoice_form"):
             img_obj = Image.open(img)
             add_invoice(date, name, value, img_obj)
             st.success("✅ تمت إضافة الفاتورة")
+            # تعيين العلامة إلى صحيح. سيتم إعادة تشغيل Streamlit بشكل طبيعي بسبب إرسال النموذج.
+            # سيتم بعد ذلك تشغيل st.experimental_rerun() في دورة التنفيذ التالية.
             st.session_state.rerun_after_add = True
 
 # إعادة تشغيل الصفحة عند الإضافة أو الحذف
+# ستنفذ هذه الكتلة عند إعادة التشغيل التالية التي يطلقها Streamlit (بعد إرسال النموذج أو النقر على الزر)
 if st.session_state.rerun_after_add or st.session_state.rerun_after_delete:
     st.session_state.rerun_after_add = False
     st.session_state.rerun_after_delete = False
-    st.experimental_rerun()
+    st.experimental_rerun() # الآن أصبح هذا الاستدعاء آمناً
 
 # إعادة تحميل بيانات الفواتير للعرض
 invoice_df = load_df(INVOICE_PATH)
@@ -100,11 +104,11 @@ else:
             st.markdown(
                 f"""
                 <div style="
-                    direction: rtl; 
-                    text-align: right; 
-                    background-color: black; 
-                    color: white; 
-                    padding: 10px; 
+                    direction: rtl;
+                    text-align: right;
+                    background-color: black;
+                    color: white;
+                    padding: 10px;
                     border-radius: 8px;">
                     <strong>📅 التاريخ:</strong> {row['التاريخ']}<br>
                     <strong>📄 اسم الفاتورة:</strong> {row['اسم الفاتورة']}<br>
@@ -116,6 +120,7 @@ else:
         with cols[2]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
+                # تعيين العلامة إلى صحيح. سيتم إعادة تشغيل Streamlit بشكل طبيعي.
                 st.session_state.rerun_after_delete = True
 
 total_invoices = invoice_df["القيمة"].sum()
