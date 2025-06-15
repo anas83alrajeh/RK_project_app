@@ -23,10 +23,10 @@ FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UTILS_DIR, exist_ok=True)
 
-# تحميل الخط تلقائياً إذا لم يكن موجودًا
+# دالة تحميل الخط إذا لم يكن موجودًا
 def download_font():
     if not os.path.exists(FONT_PATH):
-        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/main/ttf/DejaVuSans.ttf"
+        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
         try:
             r = requests.get(url)
             r.raise_for_status()
@@ -46,7 +46,7 @@ if "desc_val" not in st.session_state:
 if "upload_key" not in st.session_state:
     st.session_state.upload_key = str(uuid.uuid4())
 
-# إنشاء الملف إن لم يكن موجود
+# إنشاء ملف الميتاداتا إن لم يكن موجودًا
 if not os.path.exists(META_FILE):
     df = pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
     df.to_csv(META_FILE, index=False, encoding="utf-8")
@@ -90,6 +90,7 @@ def delete_entry(idx):
     save_df(df)
     st.session_state.should_rerun = True
 
+# واجهة إضافة صورة جديدة
 st.subheader("➕ إضافة صورة جديدة")
 with st.form("image_form"):
     date = st.date_input("تاريخ الإضافة", value=datetime.today())
@@ -106,6 +107,7 @@ with st.form("image_form"):
             img_obj = Image.open(img_file)
             add_entry(date, desc, img_obj)
 
+# إعادة تحميل الصفحة بعد إضافة أو حذف
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
@@ -114,6 +116,7 @@ if st.session_state.should_rerun:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
 
+# عرض الصور المضافة
 st.subheader("📑 الصور المضافة")
 df = load_df()
 
@@ -144,6 +147,7 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
+# إنشاء ملف PDF من الصور والبيانات
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
 
@@ -158,7 +162,6 @@ def generate_pdf(df):
         pdf.add_page()
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
-            # ضبط أبعاد الصورة لتناسب الصفحة
             pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
         pdf.set_xy(10, 10)
         pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
@@ -168,6 +171,7 @@ def generate_pdf(df):
     pdf_output.seek(0)
     return pdf_output.read()
 
+# زر تحميل ملف PDF
 st.markdown("---")
 st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
 if st.button("📄 تنزيل PDF"):
