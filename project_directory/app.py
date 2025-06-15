@@ -3,16 +3,15 @@ import streamlit as st
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-def check_password():
-    pwd = st.text_input("🔒 أدخل كلمة السر", type="password")
-    if pwd:
-        if pwd == "1234":
-            st.session_state.authenticated = True
-        else:
-            st.error("كلمة السر غير صحيحة")
-
 if not st.session_state.authenticated:
-    check_password()
+    with st.form("password_form"):
+        pwd = st.text_input("🔒 أدخل كلمة السر", type="password")
+        submit = st.form_submit_button("دخول")
+        if submit:
+            if pwd == "1234":
+                st.session_state.authenticated = True
+            else:
+                st.error("كلمة السر غير صحيحة")
     st.stop()
 
 # عرض الصفحة عند نجاح التحقق
