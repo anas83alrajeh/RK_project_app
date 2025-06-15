@@ -46,10 +46,7 @@ def add_entry(date, description, image):
 
     if image.mode in ("RGBA", "P"):
         image = image.convert("RGB")
-    if image.width > 600:
-        ratio = 600 / image.width
-        image = image.resize((600, int(image.height * ratio)))
-
+    # لا تغيير في الحجم — الصورة تحفظ كما هي
     image.save(img_path)
 
     df = load_df()
@@ -113,20 +110,14 @@ else:
 
         with cols[0]:
             if os.path.exists(img_path):
-                st.image(img_path, width=600)
+                st.image(img_path)  # عرض الصورة بحجمها الأصلي
             else:
                 st.warning("❌ الصورة غير موجودة")
 
         with cols[1]:
             st.markdown(
                 f"""
-                <div style="
-                    direction: rtl;
-                    text-align: right;
-                    background-color: #000;
-                    color: #fff;
-                    padding: 10px;
-                    border-radius: 8px;">
+                <div style="direction: rtl; text-align: right; background-color: #000; color: #fff; padding: 10px; border-radius: 8px;">
                     <strong>📅 التاريخ:</strong> {row["التاريخ"]}<br>
                     <strong>📝 الوصف:</strong> {row["الوصف"]}
                 </div>
