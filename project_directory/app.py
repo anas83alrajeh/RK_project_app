@@ -1,22 +1,21 @@
 import streamlit as st
 
-# كود طلب كلمة السر في البداية
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 def check_password():
     pwd = st.text_input("🔒 أدخل كلمة السر", type="password")
-    if pwd == "1234":
-        st.session_state.authenticated = True
-    elif pwd != "":
-        st.error("كلمة السر غير صحيحة")
+    if pwd:
+        if pwd == "1234":
+            st.session_state.authenticated = True
+        else:
+            st.error("كلمة السر غير صحيحة")
 
 if not st.session_state.authenticated:
     check_password()
     st.stop()
 
-# إذا كلمة السر صحيحة نكمل هنا عرض الصفحة
-
+# عرض الصفحة عند نجاح التحقق
 st.markdown(
     """
     <div dir="rtl" style="text-align: right; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
