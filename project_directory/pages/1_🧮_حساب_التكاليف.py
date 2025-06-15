@@ -30,8 +30,9 @@ with st.form("task_form"):
         df.loc[len(df)] = [name, count, unit_price, cost]
         save_data(df)
         st.success("تمت الإضافة")
+        st.experimental_rerun()
 
-# عرض المهام مع أزرار حذف
+# عرض المهام كجدول مع زر حذف
 st.subheader("📋 قائمة المهام")
 
 df = load_data()
@@ -39,14 +40,18 @@ df = load_data()
 if df.empty:
     st.info("لا توجد مهام حالياً")
 else:
-    # عرض الجدول مع أزرار الحذف لكل مهمة
-    for i, row in df.iterrows():
-        cols = st.columns([4, 1])
+    # إنشاء نسخة للعرض مع أزرار حذف
+    df_display = df.copy()
+    df_display.reset_index(inplace=True)  # نستخدم العمود index كمعرف
+
+    # نبني جدول بعرض اسم المهمة والعدد وسعر الوحدة والتكلفة مع عمود حذف
+    for idx, row in df_display.iterrows():
+        cols = st.columns([6, 1])
         with cols[0]:
-            st.markdown(f"**{row['اسم المهمة']}** — العدد: {row['العدد']} — سعر الوحدة: {row['سعر الوحدة']} — التكلفة: {row['التكلفة']:.2f} دولار")
+            st.markdown(f"**{row['اسم المهمة']}**  - العدد: {row['العدد']}  - سعر الوحدة: {row['سعر الوحدة']} دولار  - التكلفة: {row['التكلفة']:.2f} دولار")
         with cols[1]:
-            if st.button(f"حذف {i}", key=f"delete_{i}"):
-                df = df.drop(i).reset_index(drop=True)
+            if st.button("🗑️", key=f"del_{row['index']}"):
+                df = df.drop(row['index']).reset_index(drop=True)
                 save_data(df)
                 st.experimental_rerun()
 
