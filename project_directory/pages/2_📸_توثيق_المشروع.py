@@ -112,7 +112,7 @@ else:
 
         with cols[0]:
             if os.path.exists(img_path):
-                st.image(img_path)  # عرض الصورة بحجمها الأصلي
+                st.image(img_path)
             else:
                 st.warning("❌ الصورة غير موجودة")
 
@@ -134,9 +134,15 @@ else:
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
 
-    # استخدام مسار مطلق للخط
+    # مسار الخط مع التحقق من وجوده
     base_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(base_dir, 'utils', 'DejaVuSans.ttf')
+
+    st.write("مسار الخط:", font_path)
+    st.write("هل الخط موجود؟", os.path.exists(font_path))
+
+    if not os.path.exists(font_path):
+        raise FileNotFoundError(f"خط DejaVuSans.ttf غير موجود في المسار: {font_path}")
 
     pdf.add_font('DejaVu', '', font_path, uni=True)
     pdf.set_font("DejaVu", size=12)
@@ -145,7 +151,11 @@ def generate_pdf(df):
         pdf.add_page()
         img_path = os.path.join(base_dir, 'data', 'documentation', row["الصورة"])
         if os.path.exists(img_path):
+            # عرض الصورة مع تحديد عرض الصفحة مع ترك هامش 10 مم
             pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
+        else:
+            pdf.set_xy(10, 30)
+            pdf.cell(0, 10, "❌ الصورة غير موجودة", ln=True)
 
         pdf.set_xy(10, 10)
         pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
@@ -162,7 +172,10 @@ if st.button("📄 تنزيل PDF"):
     if df.empty:
         st.warning("لا توجد بيانات لتحويلها إلى PDF.")
     else:
-        pdf_bytes = generate_pdf(df)
-        b64 = base64.b64encode(pdf_bytes).decode()
-        href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
-        st.markdown(href, unsafe_allow_html=True)
+        try:
+            pdf_bytes = generate_pdf(df)
+            b64 = base64.b64encode(pdf_bytes).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
+            st.markdown(href, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء إنشاء ملف PDF: {e}")
