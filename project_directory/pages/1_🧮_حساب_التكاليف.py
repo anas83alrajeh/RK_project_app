@@ -17,7 +17,7 @@ def load_data():
 def save_data(df):
     save_df(df, DATA_PATH)
 
-# نستخدم st.session_state لتخزين البيانات مؤقتًا لتجنب مشاكل إعادة التحميل
+# تحميل البيانات مرة واحدة وتخزينها في session_state
 if "df" not in st.session_state:
     st.session_state.df = load_data()
 
@@ -47,20 +47,23 @@ if st.session_state.df.empty:
     st.info("لا توجد مهام حالياً")
 else:
     df_display = st.session_state.df.reset_index(drop=True)
-    st.dataframe(df_display)
 
-    st.markdown("---")
-    st.write("**لحذف مهمة، اضغط على زر الحذف المقابل:**")
-
+    # استخدم جدول عادي مع زر حذف لكل صف
     for idx, row in df_display.iterrows():
         cols = st.columns([8, 1])
         with cols[0]:
             st.write(f"{row['اسم المهمة']} - العدد: {row['العدد']} - سعر الوحدة: {row['سعر الوحدة']} دولار - التكلفة: {row['التكلفة']:.2f} دولار")
         with cols[1]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
+                # حذف المهمة من DataFrame في session_state
                 st.session_state.df = st.session_state.df.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.df)
-                st.experimental_rerun()  # نستخدمها هنا بحذر لإعادة تحميل الصفحة بعد الحذف
+                st.experimental_rerun_flag = True  # علم لإعادة تحميل بعد الحلقة
+
+# إعادة تحميل الصفحة بعد الحلقة إذا علمت بالضرورة
+if "st.experimental_rerun_flag" in st.session_state and st.session_state.st.experimental_rerun_flag:
+    st.session_state.st.experimental_rerun_flag = False
+    st.experimental_rerun()
 
 total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
 st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
