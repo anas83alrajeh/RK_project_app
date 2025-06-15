@@ -124,6 +124,42 @@ else:
                 """,
                 unsafe_allow_html=True
             )
+from fpdf import FPDF
+import base64
+import io
+
+# دالة إنشاء ملف PDF
+def generate_pdf(df):
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.add_font('DejaVu', '', 'utils/DejaVuSans.ttf', uni=True)  # خط يدعم العربية
+    pdf.set_font("DejaVu", size=12)
+
+    for idx, row in df.iterrows():
+        pdf.add_page()
+        img_path = os.path.join(DATA_DIR, row["الصورة"])
+        if os.path.exists(img_path):
+            # إعادة تحجيم الصورة لتناسب A4
+            pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
+
+        # إضافة النصوص
+        pdf.set_xy(10, 10)
+        pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
+
+    pdf_output = io.BytesIO()
+    pdf.output(pdf_output)
+    return pdf_output.getvalue()
+
+# زر التحميل
+st.markdown("---")
+st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
+if st.button("📄 تنزيل PDF"):
+    if df.empty:
+        st.warning("لا توجد بيانات لتحويلها إلى PDF.")
+    else:
+        pdf_bytes = generate_pdf(df)
+        b64 = base64.b64encode(pdf_bytes).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
+        st.markdown(href, unsafe_allow_html=True)
 
         with cols[2]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
