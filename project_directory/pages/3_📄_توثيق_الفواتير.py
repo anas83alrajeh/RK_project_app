@@ -12,7 +12,7 @@ os.makedirs(IMAGE_DIR, exist_ok=True)
 
 tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
-st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} ريال")
+st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")    
 
 invoice_df = load_df(INVOICE_PATH)
 
