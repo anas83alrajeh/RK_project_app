@@ -20,9 +20,6 @@ def save_data(df):
 if "df" not in st.session_state:
     st.session_state.df = load_data()
 
-if "delete_flag" not in st.session_state:
-    st.session_state.delete_flag = False
-
 df = st.session_state.df.copy()
 
 st.subheader("➕ إضافة مهمة")
@@ -42,6 +39,7 @@ with st.form("task_form", clear_on_submit=True):
             st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(st.session_state.df)
             st.success("تمت الإضافة")
+            st.experimental_rerun()  # إعادة تحميل الصفحة بعد الإضافة
 
 st.subheader("📋 قائمة المهام")
 
@@ -79,12 +77,7 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 st.session_state.df = st.session_state.df.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.df)
-                st.session_state.delete_flag = True  # علّم الحاجة لإعادة تحميل الصفحة
-
-# بعد الحلقة، إعادة تحميل الصفحة إذا كان علم الحذف True
-if st.session_state.delete_flag:
-    st.session_state.delete_flag = False
-    st.experimental_rerun()
+                st.experimental_rerun()  # إعادة تحميل الصفحة بعد الحذف
 
 total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
 st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
