@@ -73,7 +73,7 @@ def delete_entry(idx):
     save_df(df)
     st.session_state.should_rerun = True
 
-# النموذج لإضافة صورة جديدة
+# النموذج
 st.subheader("➕ إضافة صورة جديدة")
 with st.form("image_form"):
     date = st.date_input("تاريخ الإضافة", value=datetime.today())
@@ -126,22 +126,25 @@ else:
                 """,
                 unsafe_allow_html=True
             )
-
         with cols[2]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
-# دالة إنشاء ملف PDF مع دعم العربية
+# دالة إنشاء ملف PDF
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
-    pdf.add_font('DejaVu', '', 'utils/DejaVuSans.ttf', uni=True)  # تأكد من وجود الخط في هذا المسار
+
+    # استخدام مسار مطلق للخط
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    font_path = os.path.join(base_dir, 'utils', 'DejaVuSans.ttf')
+
+    pdf.add_font('DejaVu', '', font_path, uni=True)
     pdf.set_font("DejaVu", size=12)
 
     for idx, row in df.iterrows():
         pdf.add_page()
-        img_path = os.path.join(DATA_DIR, row["الصورة"])
+        img_path = os.path.join(base_dir, 'data', 'documentation', row["الصورة"])
         if os.path.exists(img_path):
-            # إعادة تحجيم الصورة لتناسب صفحة A4 مع هامش 10 مم
             pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
 
         pdf.set_xy(10, 10)
@@ -152,7 +155,7 @@ def generate_pdf(df):
     pdf_output.seek(0)
     return pdf_output.read()
 
-# زر تحميل PDF
+# زر التحميل PDF
 st.markdown("---")
 st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
 if st.button("📄 تنزيل PDF"):
