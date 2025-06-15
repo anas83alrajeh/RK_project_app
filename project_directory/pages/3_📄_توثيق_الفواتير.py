@@ -4,6 +4,8 @@ import os
 from PIL import Image
 import uuid
 from utils.helpers import load_df, save_df
+import logging
+import streamlit.components.v1 as components
 
 st.set_page_config(layout="centered")
 st.title("📄 صفحة توثيق الفواتير")
@@ -17,16 +19,14 @@ tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# تحميل بيانات الفواتير (نحدثها دائماً من الملف لتجنب تعارض الذاكرة)
-def get_invoice_df():
-    df = load_df(INVOICE_PATH)
-    if df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(df.columns):
-        df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
-    return df
+# تعريف متغيرات الحالة لإعادة التشغيل
+if "should_rerun" not in st.session_state:
+    st.session_state.should_rerun = False
 
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     image_path = os.path.join(IMAGE_DIR, img_id)
+    # تصغير الصورة إلى عرض 200 بكسل (يمكن تعديل الحجم حسب الحاجة)
     if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image = image.convert("RGB")
     max_width = 200
@@ -36,24 +36,24 @@ def add_invoice(date, name, value, image):
         image = image.resize(new_size)
     image.save(image_path)
 
-    df = get_invoice_df()
+    # إعادة تحميل الفواتير قبل الإضافة لضمان عدم تعارض النسخ
+    df = load_df(INVOICE_PATH)
+    if df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(df.columns):
+        df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
     df.loc[len(df)] = [date, name, value, img_id]
     save_df(df, INVOICE_PATH)
 
 def delete_invoice(idx):
-    df = get_invoice_df()
-    if df.empty or idx not in df.index:
+    df = load_df(INVOICE_PATH)
+    if df.empty:
         return
     img_file = df.loc[idx, "الصورة"]
     img_path = os.path.join(IMAGE_DIR, img_file)
     if os.path.exists(img_path):
         os.remove(img_path)
-    df = df.drop(idx).reset_index(drop=True)
+    df.drop(idx, inplace=True)
+    df.reset_index(drop=True, inplace=True)
     save_df(df, INVOICE_PATH)
-
-# التهيئة لمتغيرات الحالة
-if "should_rerun" not in st.session_state:
-    st.session_state.should_rerun = False
 
 # نموذج إضافة فاتورة
 with st.form("invoice_form"):
@@ -72,8 +72,10 @@ with st.form("invoice_form"):
             st.success("✅ تمت إضافة الفاتورة")
             st.session_state.should_rerun = True
 
-# عرض قائمة الفواتير بعد تحميلها من الملف
-invoice_df = get_invoice_df()
+# حذف فاتورة مع تعيين إعادة التشغيل
+invoice_df = load_df(INVOICE_PATH)
+if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
+    invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
 
 st.subheader("📑 قائمة الفواتير")
 
@@ -110,11 +112,16 @@ else:
                 delete_invoice(idx)
                 st.session_state.should_rerun = True
 
+# إعادة تشغيل الصفحة إذا مطلوب
+if st.session_state.should_rerun:
+    st.session_state.should_rerun = False
+    try:
+        st.experimental_rerun()
+    except Exception as e:
+        logging.error(f"Error during rerun: {e}")
+        # كبديل، يمكن استخدام إعادة تحميل الصفحة عبر جافاسكريبت:
+        components.html("<script>window.location.reload()</script>", height=0)
+
 total_invoices = invoice_df["القيمة"].sum()
 st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
 st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} ريال")
-
-# إعادة تشغيل الصفحة إذا طلب ذلك (بعد إضافة أو حذف)
-if st.session_state.should_rerun:
-    st.session_state.should_rerun = False
-    st.experimental_rerun()
