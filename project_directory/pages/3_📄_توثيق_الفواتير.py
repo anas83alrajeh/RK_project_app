@@ -14,12 +14,10 @@ INVOICE_PATH = "data/invoices.csv"
 IMAGE_DIR = "data/invoices/"
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
-# تحميل بيانات المهام وحساب مجموع التكلفة
 tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# تعريف متغير حالة لإعادة التشغيل
 if "should_rerun" not in st.session_state:
     st.session_state.should_rerun = False
 
@@ -28,7 +26,7 @@ def add_invoice(date, name, value, image):
     image_path = os.path.join(IMAGE_DIR, img_id)
     if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image = image.convert("RGB")
-    max_width = 300  # تكبير العرض هنا
+    max_width = 400  # تكبير الصورة عند الحفظ إلى 400 بكسل
     if image.width > max_width:
         ratio = max_width / image.width
         new_size = (max_width, int(image.height * ratio))
@@ -52,9 +50,8 @@ def delete_invoice(idx):
     df.drop(idx, inplace=True)
     df.reset_index(drop=True, inplace=True)
     save_df(df, INVOICE_PATH)
-    st.session_state.should_rerun = True  # نقل تعيين إعادة التشغيل هنا
+    st.session_state.should_rerun = True
 
-# نموذج إضافة فاتورة
 with st.form("invoice_form"):
     date = st.date_input("تاريخ الفاتورة")
     name = st.text_input("اسم الفاتورة")
@@ -71,7 +68,6 @@ with st.form("invoice_form"):
             st.success("✅ تمت إضافة الفاتورة")
             st.session_state.should_rerun = True
 
-# *** إعادة تشغيل الصفحة مباشرة قبل عرض البيانات ***
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
@@ -80,7 +76,6 @@ if st.session_state.should_rerun:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
 
-# بعد إعادة التشغيل يتم تحميل وعرض الفواتير
 invoice_df = load_df(INVOICE_PATH)
 if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
     invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
@@ -95,7 +90,7 @@ else:
         with cols[0]:
             img_path = os.path.join(IMAGE_DIR, row["الصورة"])
             if os.path.exists(img_path):
-                st.image(img_path, width=300)  # تكبير عرض الصورة هنا
+                st.image(img_path, width=400)  # عرض الصورة 400 بكسل
             else:
                 st.warning("❌ صورة غير موجودة")
         with cols[1]:
