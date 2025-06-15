@@ -17,11 +17,6 @@ tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# تحميل بيانات الفواتير مع التأكد من وجود الأعمدة
-invoice_df = load_df(INVOICE_PATH)
-if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
-    invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
-
 # تعريف متغيرات الحالة لإعادة التشغيل
 if "rerun_after_add" not in st.session_state:
     st.session_state.rerun_after_add = False
@@ -40,18 +35,25 @@ def add_invoice(date, name, value, image):
         new_size = (max_width, int(image.height * ratio))
         image = image.resize(new_size)
     image.save(image_path)
-    invoice_df.loc[len(invoice_df)] = [date, name, value, img_id]
-    save_df(invoice_df, INVOICE_PATH)
+
+    # إعادة تحميل الفواتير قبل الإضافة لضمان عدم تعارض النسخ
+    df = load_df(INVOICE_PATH)
+    if df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(df.columns):
+        df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
+    df.loc[len(df)] = [date, name, value, img_id]
+    save_df(df, INVOICE_PATH)
 
 def delete_invoice(idx):
-    img_file = invoice_df.loc[idx, "الصورة"]
+    df = load_df(INVOICE_PATH)
+    if df.empty:
+        return
+    img_file = df.loc[idx, "الصورة"]
     img_path = os.path.join(IMAGE_DIR, img_file)
     if os.path.exists(img_path):
         os.remove(img_path)
-    invoice_df.drop(idx, inplace=True)
-    invoice_df.reset_index(drop=True, inplace=True)
-    save_df(invoice_df, INVOICE_PATH)
-    # لا تستدعي st.experimental_rerun() هنا
+    df.drop(idx, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    save_df(df, INVOICE_PATH)
 
 # نموذج إضافة فاتورة
 with st.form("invoice_form"):
@@ -70,15 +72,16 @@ with st.form("invoice_form"):
             st.success("✅ تمت إضافة الفاتورة")
             st.session_state.rerun_after_add = True
 
-# إعادة تشغيل الصفحة عند الإضافة
-if st.session_state.rerun_after_add:
+# إعادة تشغيل الصفحة عند الإضافة أو الحذف
+if st.session_state.rerun_after_add or st.session_state.rerun_after_delete:
     st.session_state.rerun_after_add = False
-    st.experimental_rerun()
-
-# إعادة تشغيل الصفحة عند الحذف
-if st.session_state.rerun_after_delete:
     st.session_state.rerun_after_delete = False
     st.experimental_rerun()
+
+# إعادة تحميل بيانات الفواتير للعرض
+invoice_df = load_df(INVOICE_PATH)
+if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
+    invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
 
 st.subheader("📑 قائمة الفواتير")
 
