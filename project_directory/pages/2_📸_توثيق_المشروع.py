@@ -168,9 +168,8 @@ def generate_pdf(df):
 
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
-            # حساب حجم الصورة (مقاس الصفحة A4 بالميلليمتر 210x297)
             max_width = pdf.w - 20  # هامش 10 ملم من كل جهة
-            max_height = pdf.h - pdf.get_y() - 20  # المساحة المتبقية من الصفحة
+            max_height = pdf.h - pdf.get_y() - 20  # المساحة المتبقية في الصفحة
 
             with Image.open(img_path) as img:
                 width_px, height_px = img.size
@@ -184,13 +183,12 @@ def generate_pdf(df):
             disp_width = width_mm * scale
             disp_height = height_mm * scale
 
-            # إضافة الصورة بحجم مناسب
             pdf.image(img_path, x=10, y=pdf.get_y(), w=disp_width, h=disp_height)
 
-pdf_output = io.BytesIO()
-pdf.output(pdf_output)
-pdf_output.seek(0)
-return pdf_output.read()
+    pdf_output = io.BytesIO()
+    pdf.output(pdf_output)
+    pdf_output.seek(0)
+    return pdf_output.read()
 
 # زر تحميل ملف PDF
 st.markdown("---")
