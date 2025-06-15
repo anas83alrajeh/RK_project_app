@@ -12,13 +12,21 @@ INVOICE_PATH = "data/invoices.csv"
 IMAGE_DIR = "data/invoices/"
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
+# تحميل بيانات المهام وحساب مجموع التكلفة
 tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
+# تحميل بيانات الفواتير مع التأكد من وجود الأعمدة
 invoice_df = load_df(INVOICE_PATH)
 if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
     invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
+
+# تعريف متغيرات الحالة لإعادة التشغيل
+if "rerun_after_add" not in st.session_state:
+    st.session_state.rerun_after_add = False
+if "rerun_after_delete" not in st.session_state:
+    st.session_state.rerun_after_delete = False
 
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
@@ -43,12 +51,9 @@ def delete_invoice(idx):
     invoice_df.drop(idx, inplace=True)
     invoice_df.reset_index(drop=True, inplace=True)
     save_df(invoice_df, INVOICE_PATH)
-    st.experimental_rerun()
+    # لا تستدعي st.experimental_rerun() هنا
 
-# نستخدم هذه العلامة لتفعيل إعادة تشغيل الصفحة بعد الإضافة
-if "rerun_after_add" not in st.session_state:
-    st.session_state.rerun_after_add = False
-
+# نموذج إضافة فاتورة
 with st.form("invoice_form"):
     date = st.date_input("تاريخ الفاتورة")
     name = st.text_input("اسم الفاتورة")
@@ -65,8 +70,14 @@ with st.form("invoice_form"):
             st.success("✅ تمت إضافة الفاتورة")
             st.session_state.rerun_after_add = True
 
+# إعادة تشغيل الصفحة عند الإضافة
 if st.session_state.rerun_after_add:
     st.session_state.rerun_after_add = False
+    st.experimental_rerun()
+
+# إعادة تشغيل الصفحة عند الحذف
+if st.session_state.rerun_after_delete:
+    st.session_state.rerun_after_delete = False
     st.experimental_rerun()
 
 st.subheader("📑 قائمة الفواتير")
@@ -102,6 +113,7 @@ else:
         with cols[2]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
+                st.session_state.rerun_after_delete = True
 
 total_invoices = invoice_df["القيمة"].sum()
 st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
