@@ -2,4 +2,6 @@ streamlit
 pandas
 fpdf
 Pillow
+fpdf==1.7.2
+
 
