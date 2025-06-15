@@ -26,7 +26,6 @@ os.makedirs(UTILS_DIR, exist_ok=True)
 # دالة تحميل الخط إذا لم يكن موجودًا
 def download_font():
     if not os.path.exists(FONT_PATH):
-        # تعديل رابط تحميل الخط إلى رابط صالح
         url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
         try:
             r = requests.get(url)
@@ -148,9 +147,10 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
-# إنشاء ملف PDF من الصور والبيانات
+# إنشاء ملف PDF من الصور والبيانات مع النص أعلى الصورة
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.set_auto_page_break(auto=True, margin=15)
 
     if not os.path.exists(FONT_PATH):
         st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
@@ -161,16 +161,36 @@ def generate_pdf(df):
 
     for idx, row in df.iterrows():
         pdf.add_page()
+
+        # إضافة النص أعلى الصورة بمحاذاة يمين (RTL)
+        pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
+        pdf.ln(5)  # مسافة بين النص والصورة
+
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
-            pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
-        pdf.set_xy(10, 10)
-        pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
+            # حساب حجم الصورة (مقاس الصفحة A4 بالميلليمتر 210x297)
+            max_width = pdf.w - 20  # هامش 10 ملم من كل جهة
+            max_height = pdf.h - pdf.get_y() - 20  # المساحة المتبقية من الصفحة
 
-    pdf_output = io.BytesIO()
-    pdf.output(pdf_output)
-    pdf_output.seek(0)
-    return pdf_output.read()
+            with Image.open(img_path) as img:
+                width_px, height_px = img.size
+
+            # تحويل بكسل إلى ملم (1px ≈ 0.264583 mm)
+            width_mm = width_px * 0.264583
+            height_mm = height_px * 0.264583
+
+            # تصغير الصورة إذا أكبر من المساحة المتوفرة
+            scale = min(max_width / width_mm, max_height / height_mm, 1)
+            disp_width = width_mm * scale
+            disp_height = height_mm * scale
+
+            # إضافة الصورة بحجم مناسب
+            pdf.image(img_path, x=10, y=pdf.get_y(), w=disp_width, h=disp_height)
+
+pdf_output = io.BytesIO()
+pdf.output(pdf_output)
+pdf_output.seek(0)
+return pdf_output.read()
 
 # زر تحميل ملف PDF
 st.markdown("---")
