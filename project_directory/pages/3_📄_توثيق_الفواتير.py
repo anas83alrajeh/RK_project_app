@@ -17,6 +17,12 @@ tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
+# تعريف متغيرات الحالة لإعادة التشغيل
+if "rerun_after_add" not in st.session_state:
+    st.session_state.rerun_after_add = False
+if "rerun_after_delete" not in st.session_state:
+    st.session_state.rerun_after_delete = False
+
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     image_path = os.path.join(IMAGE_DIR, img_id)
@@ -64,7 +70,15 @@ with st.form("invoice_form"):
             img_obj = Image.open(img)
             add_invoice(date, name, value, img_obj)
             st.success("✅ تمت إضافة الفاتورة")
-            st.experimental_rerun()  # إعادة تشغيل الصفحة بعد الإضافة مباشرة
+            # *** التغيير هنا: أزل st.experimental_rerun() الفوري ***
+            st.session_state.rerun_after_add = True
+
+# إعادة تشغيل الصفحة عند الإضافة أو الحذف
+# هذا الجزء سيعالج إعادة التشغيل بشكل صحيح في الدورة التالية للتنفيذ
+if st.session_state.rerun_after_add or st.session_state.rerun_after_delete:
+    st.session_state.rerun_after_add = False
+    st.session_state.rerun_after_delete = False
+    st.experimental_rerun() # هذا الاستدعاء آمن هنا
 
 # إعادة تحميل بيانات الفواتير للعرض
 invoice_df = load_df(INVOICE_PATH)
@@ -104,7 +118,8 @@ else:
         with cols[2]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
-                st.experimental_rerun()  # إعادة تشغيل الصفحة بعد الحذف مباشرة
+                # *** التغيير هنا: أزل st.experimental_rerun() الفوري ***
+                st.session_state.rerun_after_delete = True
 
 total_invoices = invoice_df["القيمة"].sum()
 st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
