@@ -6,23 +6,20 @@ from utils.helpers import save_df
 st.set_page_config(layout="centered")
 st.title("🧮 صفحة حساب التكاليف")
 
-# ✅ إعادة تشغيل الصفحة إذا لزم
-if st.session_state.get("need_rerun", False):
-    st.session_state.need_rerun = False
-    st.experimental_rerun()
-
 DATA_PATH = "data/tasks.csv"
 os.makedirs("data", exist_ok=True)
 
+# دالة تحميل البيانات
 def load_data():
     if os.path.exists(DATA_PATH):
         return pd.read_csv(DATA_PATH)
     return pd.DataFrame(columns=["اسم المهمة", "العدد", "سعر الوحدة", "التكلفة"])
 
+# دالة حفظ البيانات
 def save_data(df):
     save_df(df, DATA_PATH)
 
-# تحميل البيانات في session_state
+# تحميل البيانات عند بدء الصفحة
 if "df" not in st.session_state:
     st.session_state.df = load_data()
 
@@ -43,12 +40,12 @@ with st.form("task_form", clear_on_submit=True):
             st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(st.session_state.df)
             st.session_state.need_rerun = True
-            st.stop()  # إيقاف التنفيذ مؤقتًا حتى إعادة التشغيل
+            st.stop()  # إيقاف التنفيذ مؤقتًا حتى يتم إعادة تحميل الصفحة
 
 st.subheader("📋 قائمة المهام")
 
-box_bg_color = "#f0f0f0"  # رمادي فاتح
-text_color = "#000000"    # أسود
+box_bg_color = "#f0f0f0"  # خلفية رمادية
+text_color = "#000000"    # نص أسود
 
 if st.session_state.df.empty:
     st.info("لا توجد مهام حالياً")
@@ -76,12 +73,17 @@ else:
                 st.session_state.need_rerun = True
                 st.stop()
 
-# إجمالي التكلفة
+# 💰 إجمالي التكلفة
 total = st.session_state.df["التكلفة"].sum() if not st.session_state.df.empty else 0
 st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
 
-# حساب تكلفة المتر
+# 📐 تكلفة المتر المربع
 area = st.number_input("📐 المساحة الكلية بالمتر المربع", min_value=1.0)
 if area and total > 0:
     cost_per_meter = total / area
     st.markdown(f"### 💸 تكلفة المتر المربع: {cost_per_meter:,.2f} دولار")
+
+# ✅ إعادة تحميل الصفحة عند الحاجة
+if st.session_state.get("need_rerun", False):
+    st.session_state.need_rerun = False
+    st.experimental_rerun()
