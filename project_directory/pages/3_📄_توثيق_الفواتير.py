@@ -17,12 +17,6 @@ tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# تعريف متغيرات الحالة لرسائل النجاح
-if "invoice_added_success" not in st.session_state:
-    st.session_state.invoice_added_success = False
-if "invoice_deleted_success" not in st.session_state:
-    st.session_state.invoice_deleted_success = False
-
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     image_path = os.path.join(IMAGE_DIR, img_id)
@@ -69,28 +63,15 @@ with st.form("invoice_form"):
         else:
             img_obj = Image.open(img)
             add_invoice(date, name, value, img_obj)
-            st.session_state.invoice_added_success = True # فقط تعيين علامة النجاح
-            # *** تم حذف st.experimental_rerun() هنا ***
+            st.success("✅ تمت إضافة الفاتورة")
+            st.experimental_rerun()  # إعادة تشغيل الصفحة بعد الإضافة مباشرة
 
-# عرض رسالة النجاح إذا تم الإضافة في الدورة السابقة
-if st.session_state.invoice_added_success:
-    st.success("✅ تمت إضافة الفاتورة بنجاح!")
-    st.session_state.invoice_added_success = False # لإخفائها في الدورة التالية
-
-# عرض رسالة النجاح إذا تم الحذف في الدورة السابقة
-if st.session_state.invoice_deleted_success:
-    st.success("🗑️ تمت حذف الفاتورة بنجاح!")
-    st.session_state.invoice_deleted_success = False # لإخفائها في الدورة التالية
-
----
-
-# 📑 قائمة الفواتير
-
-# إعادة تحميل بيانات الفواتير للعرض (يحدث في كل مرة يتم فيها إعادة تشغيل التطبيق)
+# إعادة تحميل بيانات الفواتير للعرض
 invoice_df = load_df(INVOICE_PATH)
 if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
     invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
 
+st.subheader("📑 قائمة الفواتير")
 
 if invoice_df.empty:
     st.info("لا توجد فواتير مضافة بعد.")
@@ -123,12 +104,7 @@ else:
         with cols[2]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
-                st.session_state.invoice_deleted_success = True # فقط تعيين علامة النجاح
-                # *** تم حذف st.experimental_rerun() هنا ***
-
----
-
-### إجماليات الفواتير
+                st.experimental_rerun()  # إعادة تشغيل الصفحة بعد الحذف مباشرة
 
 total_invoices = invoice_df["القيمة"].sum()
 st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
