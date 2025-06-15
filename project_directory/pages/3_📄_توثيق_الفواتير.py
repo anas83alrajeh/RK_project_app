@@ -18,7 +18,7 @@ st.title("📸 صفحة توثيق المشروع")
 DATA_DIR = "data/documentation"
 META_FILE = os.path.join(DATA_DIR, "metadata.csv")
 UTILS_DIR = "utils"
-FONT_FILENAME = "Amiri-Regular.ttf"  # استبدال الخط إلى Amiri
+FONT_FILENAME = "Amiri-Regular.ttf"  # استخدام خط Amiri العربي
 FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
 
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -31,7 +31,6 @@ def download_font():
         try:
             r = requests.get(url)
             r.raise_for_status()
-            os.makedirs(UTILS_DIR, exist_ok=True)
             with open(FONT_PATH, "wb") as f:
                 f.write(r.content)
             st.success("تم تحميل الخط العربي Amiri بنجاح.")
