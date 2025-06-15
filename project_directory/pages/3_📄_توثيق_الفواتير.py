@@ -25,6 +25,9 @@ if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "ا
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     image_path = os.path.join(IMAGE_DIR, img_id)
+    # تحويل الصورة إلى RGB قبل الحفظ لتجنب مشاكل حفظ PNG مع شفافية بصيغة JPG
+    if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
+        image = image.convert("RGB")
     image.save(image_path)
     invoice_df.loc[len(invoice_df)] = [date, name, value, img_id]
     save_df(invoice_df, INVOICE_PATH)
