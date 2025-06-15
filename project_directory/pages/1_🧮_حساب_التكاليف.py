@@ -30,7 +30,7 @@ with st.form("task_form"):
     if submitted:
         cost = unit_price * count
         new_row = {"اسم المهمة": name, "العدد": count, "سعر الوحدة": unit_price, "التكلفة": cost}
-        df = df.append(new_row, ignore_index=True)
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)  # تعديل هنا
         save_data(df)
         st.success("تمت الإضافة")
         st.experimental_rerun()
@@ -40,13 +40,9 @@ st.subheader("📋 قائمة المهام")
 if df.empty:
     st.info("لا توجد مهام حالياً")
 else:
-    # reset index لتسهيل التعامل مع الصفوف
     df = df.reset_index(drop=True)
-
-    # إنشاء جدول لعرض البيانات بدون عمود الحذف
     st.dataframe(df)
 
-    # إضافة أزرار حذف منفصلة بجانب كل مهمة
     st.markdown("---")
     st.write("**لحذف مهمة، اضغط على زر الحذف المقابل:**")
     for idx, row in df.iterrows():
@@ -59,7 +55,6 @@ else:
                 save_data(df)
                 st.experimental_rerun()
 
-# الحسابات النهائية
 if not df.empty:
     total = df["التكلفة"].sum()
     st.markdown(f"### 💰 المجموع الكلي: {total:,.2f} دولار")
