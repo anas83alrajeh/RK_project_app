@@ -17,22 +17,26 @@ st.title("📸 صفحة توثيق المشروع")
 DATA_DIR = "data/documentation"
 META_FILE = os.path.join(DATA_DIR, "metadata.csv")
 UTILS_DIR = "utils"
+FONT_FILENAME = "DejaVuSans.ttf"
+FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
+
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UTILS_DIR, exist_ok=True)
 
-FONT_PATH = os.path.join(UTILS_DIR, "DejaVuSans.ttf")
+# تحميل الخط تلقائياً إذا لم يكن موجودًا
+def download_font():
+    if not os.path.exists(FONT_PATH):
+        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/main/ttf/DejaVuSans.ttf"
+        try:
+            r = requests.get(url)
+            r.raise_for_status()
+            with open(FONT_PATH, "wb") as f:
+                f.write(r.content)
+            st.success("تم تحميل الخط بنجاح.")
+        except Exception as e:
+            st.error(f"فشل تحميل الخط: {e}")
 
-# تحميل خط DejaVuSans إذا غير موجود
-if not os.path.exists(FONT_PATH):
-    font_url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/version_2_37/ttf/DejaVuSans.ttf"
-    try:
-        r = requests.get(font_url)
-        r.raise_for_status()
-        with open(FONT_PATH, "wb") as f:
-            f.write(r.content)
-        st.success("تم تحميل خط DejaVuSans.ttf بنجاح.")
-    except Exception as e:
-        st.error(f"فشل تحميل الخط: {e}")
+download_font()
 
 # مفاتيح الجلسة
 if "should_rerun" not in st.session_state:
@@ -47,7 +51,6 @@ if not os.path.exists(META_FILE):
     df = pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
     df.to_csv(META_FILE, index=False, encoding="utf-8")
 
-# دالة التحميل
 def load_df():
     try:
         return pd.read_csv(META_FILE)
@@ -55,11 +58,9 @@ def load_df():
         logging.error(f"Error reading metadata file: {e}")
         return pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
 
-# دالة الحفظ
 def save_df(df):
     df.to_csv(META_FILE, index=False, encoding="utf-8")
 
-# دالة الإضافة
 def add_entry(date, description, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     img_path = os.path.join(DATA_DIR, img_id)
@@ -76,7 +77,6 @@ def add_entry(date, description, image):
     st.session_state.upload_key = str(uuid.uuid4())
     st.session_state.should_rerun = True
 
-# دالة الحذف
 def delete_entry(idx):
     df = load_df()
     if df.empty:
@@ -90,7 +90,6 @@ def delete_entry(idx):
     save_df(df)
     st.session_state.should_rerun = True
 
-# النموذج
 st.subheader("➕ إضافة صورة جديدة")
 with st.form("image_form"):
     date = st.date_input("تاريخ الإضافة", value=datetime.today())
@@ -107,7 +106,6 @@ with st.form("image_form"):
             img_obj = Image.open(img_file)
             add_entry(date, desc, img_obj)
 
-# إعادة التشغيل بعد الإضافة أو الحذف
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
@@ -116,7 +114,6 @@ if st.session_state.should_rerun:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
 
-# عرض الصور
 st.subheader("📑 الصور المضافة")
 df = load_df()
 
@@ -147,9 +144,13 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
-# دالة إنشاء ملف PDF مع دعم Unicode وخط خارجي
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
+
+    if not os.path.exists(FONT_PATH):
+        st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
+        return None
+
     pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
     pdf.set_font("DejaVu", size=12)
 
@@ -157,32 +158,24 @@ def generate_pdf(df):
         pdf.add_page()
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
+            # ضبط أبعاد الصورة لتناسب الصفحة
             pdf.image(img_path, x=10, y=30, w=pdf.w - 20)
-        else:
-            pdf.set_xy(10, 30)
-            pdf.cell(0, 10, "❌ الصورة غير موجودة", ln=True)
-
         pdf.set_xy(10, 10)
-        # تأكد من إزالة الإيموجي أو التعامل معها بحذر إن استمر الخطأ
-        text = f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}"
-        pdf.multi_cell(0, 10, text, align='R')
+        pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
 
     pdf_output = io.BytesIO()
     pdf.output(pdf_output)
     pdf_output.seek(0)
     return pdf_output.read()
 
-# زر التحميل PDF
 st.markdown("---")
 st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
 if st.button("📄 تنزيل PDF"):
     if df.empty:
         st.warning("لا توجد بيانات لتحويلها إلى PDF.")
     else:
-        try:
-            pdf_bytes = generate_pdf(df)
+        pdf_bytes = generate_pdf(df)
+        if pdf_bytes:
             b64 = base64.b64encode(pdf_bytes).decode()
             href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
             st.markdown(href, unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"حدث خطأ أثناء إنشاء ملف PDF: {e}")
