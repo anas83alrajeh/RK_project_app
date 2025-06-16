@@ -7,7 +7,7 @@ st.set_page_config(layout="centered")
 DATA_PATH = "data/project_phases.csv"
 os.makedirs("data", exist_ok=True)
 
-# المراحل العشر المطلوبة
+# تعريف المراحل العشر
 phase_names = [
     "تحديد الأرض",
     "استخراج التراخيص",
@@ -21,6 +21,7 @@ phase_names = [
     "إعداد تقرير التسليم"
 ]
 
+# إنشاء البيانات الافتراضية
 default_phases = [
     {
         "رقم المرحلة": i + 1,
@@ -35,7 +36,6 @@ default_phases = [
 def load_data():
     if os.path.exists(DATA_PATH):
         df = pd.read_csv(DATA_PATH)
-        # ✅ إذا كانت البيانات أقل من 10 مراحل، إعادة تعيين الملف
         if len(df) < 10:
             return pd.DataFrame(default_phases)
         return df
@@ -56,7 +56,13 @@ def safe_to_date(value):
 
 df = load_data()
 
-# RTL CSS
+# ✅ حساب نسبة الإنجاز في الأعلى
+completed_count = df["تم التنفيذ"].sum() if "تم التنفيذ" in df.columns else 0
+progress_percent = int(completed_count) * 10
+st.markdown(f"<h4 style='text-align: right; direction: rtl;'>🚀 نسبة إنجاز المشروع: {progress_percent}%</h4>", unsafe_allow_html=True)
+st.progress(progress_percent / 100)
+
+# ✅ تنسيق RTL
 st.markdown("""
 <style>
     body, div, input, label, textarea, select, button {
@@ -81,9 +87,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# عرض المراحل
-completed_count = 0
-
+# ✅ عرض تفاصيل كل مرحلة
 for idx, row in df.iterrows():
     st.markdown(f'<div class="phase-box">', unsafe_allow_html=True)
     st.markdown(f'<div class="phase-title">المرحلة {row["رقم المرحلة"]}: {row["اسم المرحلة"]}</div>', unsafe_allow_html=True)
@@ -122,17 +126,10 @@ for idx, row in df.iterrows():
 
     done = st.checkbox("✅ تم التنفيذ", value=bool(row.get("تم التنفيذ", False)), key=f"done_{idx}")
     df.at[idx, "تم التنفيذ"] = done
-    if done:
-        completed_count += 1
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ✅ عرض نسبة الإنجاز
-progress_percent = completed_count * 10
-st.progress(progress_percent / 100)
-st.markdown(f"<h4 style='text-align: right; direction: rtl;'>🚀 نسبة إنجاز المشروع: {progress_percent}%</h4>", unsafe_allow_html=True)
-
-# زر الحفظ
+# ✅ زر الحفظ
 if st.button("💾 حفظ المراحل"):
     save_data(df)
     st.success("✅ تم حفظ البيانات وتحديث نسبة الإنجاز.")
