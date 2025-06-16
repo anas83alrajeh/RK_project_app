@@ -47,11 +47,6 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_PATH, index=False, encoding="utf-8")
 
-def reset_data():
-    # حذف الملف إذا موجود
-    if os.path.exists(DATA_PATH):
-        os.remove(DATA_PATH)
-
 def safe_to_date(value):
     try:
         if pd.isna(value) or value == "" or value is None:
@@ -94,14 +89,6 @@ for idx, row in df.iterrows():
     if key not in st.session_state:
         st.session_state[key] = row.get("تم التنفيذ", False)
 
-# زر حذف البيانات في الأعلى مع تنبيه وتأكيد
-if st.button("🗑️ حذف كل بيانات المشروع"):
-    reset_data()
-    # إعادة تهيئة session_state لكل checkboxes
-    for i in range(len(df)):
-        st.session_state[f"done_{i}"] = False
-    st.experimental_rerun()  # إعادة تشغيل التطبيق لتحديث العرض
-
 # عرض مراحل المشروع مع تحديث القيمة مباشرة من session_state
 for idx, row in df.iterrows():
     st.markdown(f'<div class="phase-box">', unsafe_allow_html=True)
@@ -139,6 +126,7 @@ for idx, row in df.iterrows():
             key=f"duration_{idx}"
         )
 
+    # هنا checkbox مع ربطه بالـ session_state للتحديث الفوري
     done = st.checkbox("✅ تم التنفيذ", key=f"done_{idx}")
     df.at[idx, "تم التنفيذ"] = done
 
@@ -154,6 +142,7 @@ st.progress(progress_percent / 100)
 
 # زر حفظ البيانات فقط
 if st.button("💾 حفظ المراحل"):
+    # تحديث عمود تم التنفيذ في df من session_state قبل الحفظ
     for i in range(len(df)):
         df.at[i, "تم التنفيذ"] = st.session_state[f"done_{i}"]
     save_data(df)
