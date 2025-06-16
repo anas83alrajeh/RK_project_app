@@ -175,7 +175,7 @@ st.subheader("⬇️ تحميل الملفات")
 col1 = st.columns(1)[0]
 
 with col1:
-    if st.button("⬇️ تنزيل PDF بالصور فقط (مرتبة حسب التاريخ)"):
+    if st.button("⬇️ PDF تنزيل الصور بصيغة"):
         if df.empty:
             st.warning("لا توجد صور للتحميل.")
         else:
