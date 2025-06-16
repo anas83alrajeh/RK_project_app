@@ -1,7 +1,9 @@
 streamlit
 pandas
+pillow
 fpdf
-Pillow
-fpdf==1.7.2
+requests
+arabic-reshaper
+python-bidi
 
 
