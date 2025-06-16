@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import os
 import pandas as pd
@@ -24,18 +25,48 @@ FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UTILS_DIR, exist_ok=True)
 
-# تحميل الخط العربي Amiri إذا لم يكن موجودًا
+# Define a known good size for the Amiri-Regular.ttf font (approximate, find exact if possible)
+# You can find the exact size by downloading it manually and checking its properties.
+# For Amiri-Regular.ttf from the official GitHub, it's typically around 4.5 MB.
+KNOWN_FONT_SIZE_BYTES = 4500000  # Example: 4.5 MB, adjust if you get the exact size
+
+# تحميل الخط العربي Amiri إذا لم يكن موجودًا أو كان غير مكتمل
 def download_font():
-    if not os.path.exists(FONT_PATH):
+    # Check if the font file exists and is of a reasonable size (e.g., within 10% of known size)
+    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < KNOWN_FONT_SIZE_BYTES * 0.9:
+        st.info("جاري تحميل الخط العربي Amiri...")
         url = "https://github.com/aliftype/amiri-font/raw/master/ttf/Amiri-Regular.ttf"
         try:
-            r = requests.get(url)
-            r.raise_for_status()
+            # Use stream=True to handle large files and prevent memory issues
+            r = requests.get(url, stream=True)
+            r.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+
+            total_size = int(r.headers.get('content-length', 0))
+            if total_size == 0:
+                # If content-length is not provided, use the known size for estimation
+                total_size = KNOWN_FONT_SIZE_BYTES
+
+            downloaded_size = 0
             with open(FONT_PATH, "wb") as f:
-                f.write(r.content)
-            st.success("تم تحميل الخط العربي Amiri بنجاح.")
+                for chunk in r.iter_content(chunk_size=8192):  # Iterate in chunks
+                    f.write(chunk)
+                    downloaded_size += len(chunk)
+            
+            # Verify the downloaded file size
+            if os.path.getsize(FONT_PATH) >= KNOWN_FONT_SIZE_BYTES * 0.9:
+                st.success("تم تحميل الخط العربي Amiri بنجاح.")
+            else:
+                st.error("فشل تحميل الخط: حجم الملف المحمل صغير جدًا أو غير مكتمل.")
+                if os.path.exists(FONT_PATH):
+                    os.remove(FONT_PATH) # Remove incomplete file
+        except requests.exceptions.RequestException as e:
+            st.error(f"فشل تحميل الخط بسبب مشكلة في الشبكة: {e}")
+            if os.path.exists(FONT_PATH):
+                os.remove(FONT_PATH) # Remove incomplete file
         except Exception as e:
-            st.error(f"فشل تحميل الخط: {e}")
+            st.error(f"حدث خطأ غير متوقع أثناء تحميل الخط: {e}")
+            if os.path.exists(FONT_PATH):
+                os.remove(FONT_PATH) # Remove incomplete file
 
 download_font()
 
@@ -157,6 +188,7 @@ def generate_pdf(df):
         st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
         return None
 
+    # IMPORTANT: Use 'Amiri' as the font family name, matching the add_font call
     pdf.add_font('Amiri', '', FONT_PATH, uni=True)
     pdf.set_font("Amiri", size=12)
 
@@ -186,7 +218,10 @@ def generate_pdf(df):
             disp_width = width_mm * scale
             disp_height = height_mm * scale
 
-            pdf.image(img_path, x=10, y=pdf.get_y(), w=disp_width, h=disp_height)
+            # Ensure image fits within current page and available space
+            # Adjust x and y if needed to center or align the image
+            pdf.image(img_path, x=(pdf.w - disp_width) / 2, y=pdf.get_y(), w=disp_width, h=disp_height)
+            pdf.ln(disp_height + 5) # Add some space after the image
 
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return pdf_bytes
@@ -202,3 +237,4 @@ if st.button("📄 تنزيل PDF"):
             b64 = base64.b64encode(pdf_bytes).decode()
             href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
             st.markdown(href, unsafe_allow_html=True)
+```
