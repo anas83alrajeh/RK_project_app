@@ -1,142 +1,95 @@
-```python
 import streamlit as st
-import os
 import pandas as pd
+import os
 from PIL import Image
 import uuid
-from datetime import datetime
+from utils.helpers import load_df, save_df
 import logging
 import streamlit.components.v1 as components
-from fpdf import FPDF
-import base64
-import requests
-import arabic_reshaper
-from bidi.algorithm import get_display
 
 st.set_page_config(layout="centered")
-st.title("📸 صفحة توثيق المشروع")
+st.title("📄 صفحة توثيق الفواتير")
 
-DATA_DIR = "data/documentation"
-META_FILE = os.path.join(DATA_DIR, "metadata.csv")
-UTILS_DIR = "utils"
-FONT_FILENAME = "Amiri-Regular.ttf"  # استخدام خط Amiri العربي
-FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
+INVOICE_PATH = "data/invoices.csv"
+IMAGE_DIR = "data/invoices/"
+os.makedirs(IMAGE_DIR, exist_ok=True)
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(UTILS_DIR, exist_ok=True)
+tasks_df = load_df("data/tasks.csv")
+total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
+st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# Define a known good size for the Amiri-Regular.ttf font (approximate, find exact if possible)
-# You can find the exact size by downloading it manually and checking its properties.
-# For Amiri-Regular.ttf from the official GitHub, it's typically around 4.5 MB.
-KNOWN_FONT_SIZE_BYTES = 4500000  # Example: 4.5 MB, adjust if you get the exact size
-
-# تحميل الخط العربي Amiri إذا لم يكن موجودًا أو كان غير مكتمل
-def download_font():
-    # Check if the font file exists and is of a reasonable size (e.g., within 10% of known size)
-    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < KNOWN_FONT_SIZE_BYTES * 0.9:
-        st.info("جاري تحميل الخط العربي Amiri...")
-        url = "https://github.com/aliftype/amiri-font/raw/master/ttf/Amiri-Regular.ttf"
-        try:
-            # Use stream=True to handle large files and prevent memory issues
-            r = requests.get(url, stream=True)
-            r.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
-
-            total_size = int(r.headers.get('content-length', 0))
-            if total_size == 0:
-                # If content-length is not provided, use the known size for estimation
-                total_size = KNOWN_FONT_SIZE_BYTES
-
-            downloaded_size = 0
-            with open(FONT_PATH, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):  # Iterate in chunks
-                    f.write(chunk)
-                    downloaded_size += len(chunk)
-            
-            # Verify the downloaded file size
-            if os.path.getsize(FONT_PATH) >= KNOWN_FONT_SIZE_BYTES * 0.9:
-                st.success("تم تحميل الخط العربي Amiri بنجاح.")
-            else:
-                st.error("فشل تحميل الخط: حجم الملف المحمل صغير جدًا أو غير مكتمل.")
-                if os.path.exists(FONT_PATH):
-                    os.remove(FONT_PATH) # Remove incomplete file
-        except requests.exceptions.RequestException as e:
-            st.error(f"فشل تحميل الخط بسبب مشكلة في الشبكة: {e}")
-            if os.path.exists(FONT_PATH):
-                os.remove(FONT_PATH) # Remove incomplete file
-        except Exception as e:
-            st.error(f"حدث خطأ غير متوقع أثناء تحميل الخط: {e}")
-            if os.path.exists(FONT_PATH):
-                os.remove(FONT_PATH) # Remove incomplete file
-
-download_font()
-
-# مفاتيح الجلسة
+# حالة لإعادة تشغيل الصفحة
 if "should_rerun" not in st.session_state:
     st.session_state.should_rerun = False
-if "desc_val" not in st.session_state:
-    st.session_state.desc_val = ""
+
+# مفاتيح الجلسة لتفريغ الحقول بعد الإضافة
+if "name_value" not in st.session_state:
+    st.session_state.name_value = ""
+if "value_amount" not in st.session_state:
+    st.session_state.value_amount = 0.0
 if "upload_key" not in st.session_state:
     st.session_state.upload_key = str(uuid.uuid4())
 
-if not os.path.exists(META_FILE):
-    df = pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
-    df.to_csv(META_FILE, index=False, encoding="utf-8")
-
-def load_df():
-    try:
-        return pd.read_csv(META_FILE)
-    except Exception as e:
-        logging.error(f"Error reading metadata file: {e}")
-        return pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
-
-def save_df(df):
-    df.to_csv(META_FILE, index=False, encoding="utf-8")
-
-def add_entry(date, description, image):
+def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
-    img_path = os.path.join(DATA_DIR, img_id)
-
-    if image.mode in ("RGBA", "P"):
+    image_path = os.path.join(IMAGE_DIR, img_id)
+    
+    # معالجة صيغة الصورة وحجمها
+    if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image = image.convert("RGB")
-    image.save(img_path)
+    max_width = 600
+    if image.width > max_width:
+        ratio = max_width / image.width
+        new_size = (max_width, int(image.height * ratio))
+        image = image.resize(new_size)
+    image.save(image_path)
 
-    df = load_df()
-    df.loc[len(df)] = [img_id, description, date]
-    save_df(df)
+    df = load_df(INVOICE_PATH)
+    if df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(df.columns):
+        df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
+    df.loc[len(df)] = [date, name, value, img_id]
+    save_df(df, INVOICE_PATH)
 
-    st.session_state.desc_val = ""
-    st.session_state.upload_key = str(uuid.uuid4())
-    st.session_state.should_rerun = True
-
-def delete_entry(idx):
-    df = load_df()
+def delete_invoice(idx):
+    df = load_df(INVOICE_PATH)
     if df.empty:
         return
     img_file = df.loc[idx, "الصورة"]
-    img_path = os.path.join(DATA_DIR, img_file)
+    img_path = os.path.join(IMAGE_DIR, img_file)
     if os.path.exists(img_path):
         os.remove(img_path)
     df.drop(idx, inplace=True)
     df.reset_index(drop=True, inplace=True)
-    save_df(df)
+    save_df(df, INVOICE_PATH)
     st.session_state.should_rerun = True
 
-st.subheader("➕ إضافة صورة جديدة")
-with st.form("image_form"):
-    date = st.date_input("تاريخ الإضافة", value=datetime.today())
-    desc = st.text_input("الوصف", value=st.session_state.desc_val)
-    img_file = st.file_uploader("تحميل الصورة", type=["jpg", "jpeg", "png"], key=st.session_state.upload_key)
-    submitted = st.form_submit_button("إضافة")
+# نموذج إضافة فاتورة
+with st.form("invoice_form"):
+    date = st.date_input("تاريخ الفاتورة")
+    name = st.text_input("اسم الفاتورة", value=st.session_state.name_value, key="name_input")
+    value = st.number_input("القيمة", min_value=0.0, value=st.session_state.value_amount, key="value_input")
+    img = st.file_uploader("صورة الفاتورة", type=["jpg", "jpeg", "png"], key=st.session_state.upload_key)
+    submit = st.form_submit_button("إضافة الفاتورة")
 
-    if submitted:
-        if not img_file:
-            st.error("يرجى رفع صورة.")
-        elif desc.strip() == "":
-            st.error("يرجى كتابة وصف.")
+    if submit:
+        if not img:
+            st.error("يرجى رفع صورة الفاتورة.")
+        elif name.strip() == "":
+            st.error("يرجى كتابة اسم الفاتورة.")
+        elif value <= 0:
+            st.error("القيمة يجب أن تكون أكبر من صفر.")
         else:
-            img_obj = Image.open(img_file)
-            add_entry(date, desc, img_obj)
+            img_obj = Image.open(img)
+            add_invoice(date, name, value, img_obj)
+            st.success("✅ تمت إضافة الفاتورة")
 
+            # إعادة تعيين القيم لتفريغ الحقول
+            st.session_state.name_value = ""
+            st.session_state.value_amount = 0.0
+            st.session_state.upload_key = str(uuid.uuid4())  # تغيير المفتاح لمسح الصورة
+            st.session_state.should_rerun = True
+
+# إعادة تشغيل الصفحة بعد الإضافة أو الحذف
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
@@ -145,96 +98,46 @@ if st.session_state.should_rerun:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
 
-st.subheader("📑 الصور المضافة")
-df = load_df()
+# عرض الفواتير
+invoice_df = load_df(INVOICE_PATH)
+if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
+    invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
 
-if df.empty:
-    st.info("لا توجد صور حتى الآن.")
+st.subheader("📑 قائمة الفواتير")
+
+if invoice_df.empty:
+    st.info("لا توجد فواتير مضافة بعد.")
 else:
-    for idx, row in df.iterrows():
+    for idx, row in invoice_df.iterrows():
         cols = st.columns([1, 5, 1])
-        img_path = os.path.join(DATA_DIR, row["الصورة"])
-
         with cols[0]:
+            img_path = os.path.join(IMAGE_DIR, row["الصورة"])
             if os.path.exists(img_path):
-                st.image(img_path)
+                st.image(img_path, width=600)
             else:
-                st.warning("❌ الصورة غير موجودة")
-
+                st.warning("❌ صورة غير موجودة")
         with cols[1]:
             st.markdown(
                 f"""
-                <div style="direction: rtl; text-align: right; background-color: #000; color: #fff; padding: 10px; border-radius: 8px;">
-                    <strong>📅 التاريخ:</strong> {row["التاريخ"]}<br>
-                    <strong>📝 الوصف:</strong> {row["الوصف"]}
+                <div style="
+                    direction: rtl; 
+                    text-align: right; 
+                    background-color: black; 
+                    color: white; 
+                    padding: 10px; 
+                    border-radius: 8px;">
+                    <strong>📅 التاريخ:</strong> {row['التاريخ']}<br>
+                    <strong>📄 اسم الفاتورة:</strong> {row['اسم الفاتورة']}<br>
+                    <strong>💵 القيمة:</strong> {row['القيمة']:,.2f} ريال
                 </div>
                 """,
                 unsafe_allow_html=True
             )
         with cols[2]:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
-                delete_entry(idx)
+                delete_invoice(idx)
 
-def reshape_arabic_text(text):
-    reshaped_text = arabic_reshaper.reshape(text)
-    bidi_text = get_display(reshaped_text)
-    return bidi_text
-
-def generate_pdf(df):
-    pdf = FPDF(orientation='P', unit='mm', format='A4')
-    pdf.set_auto_page_break(auto=True, margin=15)
-
-    if not os.path.exists(FONT_PATH):
-        st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
-        return None
-
-    # IMPORTANT: Use 'Amiri' as the font family name, matching the add_font call
-    pdf.add_font('Amiri', '', FONT_PATH, uni=True)
-    pdf.set_font("Amiri", size=12)
-
-    for idx, row in df.iterrows():
-        pdf.add_page()
-
-        # صياغة النص العربي لدعم RTL
-        date_text = reshape_arabic_text(f"📅 التاريخ: {row['التاريخ']}")
-        desc_text = reshape_arabic_text(f"📝 الوصف: {row['الوصف']}")
-
-        # النص بمحاذاة يمين
-        pdf.multi_cell(0, 10, f"{date_text}\n{desc_text}", align='R')
-        pdf.ln(5)
-
-        img_path = os.path.join(DATA_DIR, row["الصورة"])
-        if os.path.exists(img_path):
-            max_width = pdf.w - 20
-            max_height = pdf.h - pdf.get_y() - 20
-
-            with Image.open(img_path) as img:
-                width_px, height_px = img.size
-
-            width_mm = width_px * 0.264583
-            height_mm = height_px * 0.264583
-
-            scale = min(max_width / width_mm, max_height / height_mm, 1)
-            disp_width = width_mm * scale
-            disp_height = height_mm * scale
-
-            # Ensure image fits within current page and available space
-            # Adjust x and y if needed to center or align the image
-            pdf.image(img_path, x=(pdf.w - disp_width) / 2, y=pdf.get_y(), w=disp_width, h=disp_height)
-            pdf.ln(disp_height + 5) # Add some space after the image
-
-    pdf_bytes = pdf.output(dest='S').encode('latin1')
-    return pdf_bytes
-
-st.markdown("---")
-st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
-if st.button("📄 تنزيل PDF"):
-    if df.empty:
-        st.warning("لا توجد بيانات لتحويلها إلى PDF.")
-    else:
-        pdf_bytes = generate_pdf(df)
-        if pdf_bytes:
-            b64 = base64.b64encode(pdf_bytes).decode()
-            href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
-            st.markdown(href, unsafe_allow_html=True)
-```
+# ملخص الفواتير
+total_invoices = invoice_df["القيمة"].sum()
+st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
+st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} ريال")
