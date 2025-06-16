@@ -9,6 +9,8 @@ import streamlit.components.v1 as components
 from fpdf import FPDF
 import base64
 import requests
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 st.set_page_config(layout="centered")
 st.title("📸 صفحة توثيق المشروع")
@@ -16,24 +18,41 @@ st.title("📸 صفحة توثيق المشروع")
 DATA_DIR = "data/documentation"
 META_FILE = os.path.join(DATA_DIR, "metadata.csv")
 UTILS_DIR = "utils"
-FONT_FILENAME = "DejaVuSans.ttf"
+FONT_FILENAME = "Amiri-Regular.ttf"  # استخدام خط Amiri العربي
 FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UTILS_DIR, exist_ok=True)
 
-# دالة تحميل الخط إذا لم يكن موجودًا
+# حجم تقريبي معروف للخط Amiri-Regular.ttf
+KNOWN_FONT_SIZE_BYTES = 4500000  # 4.5 ميجابايت تقريباً
+
 def download_font():
-    if not os.path.exists(FONT_PATH):
-        url = "https://github.com/anas83alrajeh/RK_project_app/raw/master/project_directory/utils/DejaVuSans.ttf"
+    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < KNOWN_FONT_SIZE_BYTES * 0.9:
+        st.info("جاري تحميل الخط العربي Amiri...")
+        url = "https://github.com/aliftype/amiri-font/raw/master/ttf/Amiri-Regular.ttf"
         try:
-            r = requests.get(url)
+            r = requests.get(url, stream=True)
             r.raise_for_status()
+
             with open(FONT_PATH, "wb") as f:
-                f.write(r.content)
-            st.success("تم تحميل الخط بنجاح.")
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            if os.path.getsize(FONT_PATH) >= KNOWN_FONT_SIZE_BYTES * 0.9:
+                st.success("تم تحميل الخط العربي Amiri بنجاح.")
+            else:
+                st.error("فشل تحميل الخط: حجم الملف المحمل صغير جدًا أو غير مكتمل.")
+                if os.path.exists(FONT_PATH):
+                    os.remove(FONT_PATH)
+        except requests.exceptions.RequestException as e:
+            st.error(f"فشل تحميل الخط بسبب مشكلة في الشبكة: {e}")
+            if os.path.exists(FONT_PATH):
+                os.remove(FONT_PATH)
         except Exception as e:
-            st.error(f"فشل تحميل الخط: {e}")
+            st.error(f"حدث خطأ غير متوقع أثناء تحميل الخط: {e}")
+            if os.path.exists(FONT_PATH):
+                os.remove(FONT_PATH)
 
 download_font()
 
@@ -45,7 +64,6 @@ if "desc_val" not in st.session_state:
 if "upload_key" not in st.session_state:
     st.session_state.upload_key = str(uuid.uuid4())
 
-# إنشاء ملف الميتاداتا إن لم يكن موجودًا
 if not os.path.exists(META_FILE):
     df = pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
     df.to_csv(META_FILE, index=False, encoding="utf-8")
@@ -89,7 +107,6 @@ def delete_entry(idx):
     save_df(df)
     st.session_state.should_rerun = True
 
-# واجهة إضافة صورة جديدة
 st.subheader("➕ إضافة صورة جديدة")
 with st.form("image_form"):
     date = st.date_input("تاريخ الإضافة", value=datetime.today())
@@ -106,7 +123,6 @@ with st.form("image_form"):
             img_obj = Image.open(img_file)
             add_entry(date, desc, img_obj)
 
-# إعادة تحميل الصفحة بعد إضافة أو حذف
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
@@ -115,7 +131,6 @@ if st.session_state.should_rerun:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
 
-# عرض الصور المضافة
 st.subheader("📑 الصور المضافة")
 df = load_df()
 
@@ -146,7 +161,11 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
-# إنشاء ملف PDF من الصور والبيانات مع النص أعلى الصورة
+def reshape_arabic_text(text):
+    reshaped_text = arabic_reshaper.reshape(text)
+    bidi_text = get_display(reshaped_text)
+    return bidi_text
+
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -155,47 +174,74 @@ def generate_pdf(df):
         st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
         return None
 
-    pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
-    pdf.set_font("DejaVu", size=12)
+    pdf.add_font('Amiri', '', FONT_PATH, uni=True)
+    pdf.set_font("Amiri", size=12)
 
     for idx, row in df.iterrows():
         pdf.add_page()
 
-        # إضافة النص أعلى الصورة بمحاذاة يمين (RTL)
-        pdf.multi_cell(0, 10, f"📅 التاريخ: {row['التاريخ']}\n📝 الوصف: {row['الوصف']}", align='R')
-        pdf.ln(5)  # مسافة بين النص والصورة
+        # صياغة النص العربي لدعم RTL
+        date_text = reshape_arabic_text(f"📅 التاريخ: {row['التاريخ']}")
+        desc_text = reshape_arabic_text(f"📝 الوصف: {row['الوصف']}")
+
+        # النص بمحاذاة يمين
+        pdf.multi_cell(0, 10, f"{date_text}\n{desc_text}", align='R')
+        pdf.ln(5)
 
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
-            max_width = pdf.w - 20  # هامش 10 ملم من كل جهة
-            max_height = pdf.h - pdf.get_y() - 20  # المساحة المتبقية في الصفحة
+            max_width = pdf.w - 20
+            max_height = pdf.h - pdf.get_y() - 20
 
             with Image.open(img_path) as img:
                 width_px, height_px = img.size
 
-            # تحويل بكسل إلى ملم (1px ≈ 0.264583 mm)
             width_mm = width_px * 0.264583
             height_mm = height_px * 0.264583
 
-            # تصغير الصورة إذا أكبر من المساحة المتوفرة
             scale = min(max_width / width_mm, max_height / height_mm, 1)
             disp_width = width_mm * scale
             disp_height = height_mm * scale
 
-            pdf.image(img_path, x=10, y=pdf.get_y(), w=disp_width, h=disp_height)
+            pdf.image(img_path, x=(pdf.w - disp_width) / 2, y=pdf.get_y(), w=disp_width, h=disp_height)
+            pdf.ln(disp_height + 5)
 
-    pdf_bytes = pdf.output(dest='S').encode('latin1')  # تعديل هنا
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
     return pdf_bytes
 
-# زر تحميل ملف PDF
+# **دالة جديدة لتوليد PDF يحتوي الصور فقط بدون أي نصوص، مرتبة حسب التاريخ**
+def generate_pdf_only_images(df):
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # ترتيب الصور حسب التاريخ تصاعدياً
+    df_sorted = df.sort_values(by="التاريخ")
+
+    for _, row in df_sorted.iterrows():
+        pdf.add_page()
+        img_path = os.path.join(DATA_DIR, row["الصورة"])
+        if os.path.exists(img_path):
+            with Image.open(img_path) as img:
+                width_px, height_px = img.size
+
+            width_mm = width_px * 0.264583
+            height_mm = height_px * 0.264583
+
+            max_width = pdf.w - 20
+            max_height = pdf.h - 20
+
+            scale = min(max_width / width_mm, max_height / height_mm, 1)
+            disp_width = width_mm * scale
+            disp_height = height_mm * scale
+
+            x = (pdf.w - disp_width) / 2
+            y = (pdf.h - disp_height) / 2
+
+            pdf.image(img_path, x=x, y=y, w=disp_width, h=disp_height)
+
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    return pdf_bytes
+
 st.markdown("---")
 st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
-if st.button("📄 تنزيل PDF"):
-    if df.empty:
-        st.warning("لا توجد بيانات لتحويلها إلى PDF.")
-    else:
-        pdf_bytes = generate_pdf(df)
-        if pdf_bytes:
-            b64 = base64.b64encode(pdf_bytes).decode()
-            href = f'<a href="data:application/octet-stream;base64,{b64}" download="توثيق_المشروع.pdf">📥 اضغط هنا لتحميل الملف</a>'
-            st.markdown(href, unsafe_allow_html=True)
+if st.button("
