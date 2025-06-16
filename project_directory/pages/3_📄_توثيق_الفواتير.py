@@ -139,5 +139,5 @@ else:
 
 # ملخص الفواتير
 total_invoices = invoice_df["القيمة"].sum()
-st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} ريال")
-st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} ريال")
+st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} دولار")
+st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} دولار")
