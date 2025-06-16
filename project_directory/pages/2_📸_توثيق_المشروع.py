@@ -27,25 +27,11 @@ os.makedirs(UTILS_DIR, exist_ok=True)
 KNOWN_FONT_SIZE_BYTES = 4500000
 
 def download_font():
-    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < KNOWN_FONT_SIZE_BYTES * 0.9:
-        st.info("جاري تحميل الخط العربي Amiri...")
-        url = "https://github.com/anas83alrajeh/RK_project_app/raw/master/project_directory/utils/Amiri-Regular.ttf"
-        try:
-            r = requests.get(url, stream=True)
-            r.raise_for_status()
-            with open(FONT_PATH, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            if os.path.getsize(FONT_PATH) >= KNOWN_FONT_SIZE_BYTES * 0.9:
-                st.success("تم تحميل الخط العربي Amiri بنجاح.")
-            else:
-                st.error("فشل تحميل الخط: الملف صغير أو غير مكتمل.")
-                if os.path.exists(FONT_PATH):
-                    os.remove(FONT_PATH)
-        except Exception as e:
-            st.error(f"خطأ أثناء تحميل الخط: {e}")
-            if os.path.exists(FONT_PATH):
-                os.remove(FONT_PATH)
+    # تعديل: لا نحمّل الخط ولا نعرض أي رسائل خطأ أو نجاح
+    # فقط نتأكد إذا الملف موجود وبحجم مناسب، وإلا نتجاهل
+    if os.path.exists(FONT_PATH) and os.path.getsize(FONT_PATH) >= KNOWN_FONT_SIZE_BYTES * 0.9:
+        return
+    # الملف غير موجود أو صغير الحجم: لا نفعل شيء، ولا نعرض رسالة
 
 download_font()
 
