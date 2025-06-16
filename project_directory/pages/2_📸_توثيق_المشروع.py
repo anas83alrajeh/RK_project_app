@@ -9,6 +9,8 @@ import streamlit.components.v1 as components
 from fpdf import FPDF
 import base64
 import requests
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 st.set_page_config(layout="centered")
 st.title("📸 صفحة توثيق المشروع")
@@ -27,7 +29,7 @@ KNOWN_FONT_SIZE_BYTES = 4500000
 def download_font():
     if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < KNOWN_FONT_SIZE_BYTES * 0.9:
         st.info("جاري تحميل الخط العربي Amiri...")
-        url = "https://github.com/aliftype/amiri-font/raw/master/ttf/Amiri-Regular.ttf"
+        url = "https://github.com/aliftype/amiri-font/raw/2.000/ttf/Amiri-Regular.ttf"
         try:
             r = requests.get(url, stream=True)
             r.raise_for_status()
@@ -52,8 +54,8 @@ if "should_rerun" not in st.session_state:
 if "upload_key" not in st.session_state:
     st.session_state.upload_key = str(uuid.uuid4())
 
+# في حال عدم وجود ملف metadata.csv، ننشئه بعمودين فقط: "الصورة" و "التاريخ"
 if not os.path.exists(META_FILE):
-    # عمود الوصف تم حذفه نهائياً
     pd.DataFrame(columns=["الصورة", "التاريخ"]).to_csv(META_FILE, index=False, encoding="utf-8")
 
 def load_df():
@@ -73,7 +75,8 @@ def add_entry(date, image):
         image = image.convert("RGB")
     image.save(img_path)
     df = load_df()
-    df.loc[len(df)] = [img_id, date]
+    date_str = pd.to_datetime(date).strftime("%Y-%m-%d")
+    df.loc[len(df)] = [img_id, date_str]
     save_df(df)
     st.session_state.upload_key = str(uuid.uuid4())
     st.session_state.should_rerun = True
@@ -164,11 +167,14 @@ def generate_pdf_only_images(df):
 st.markdown("---")
 st.subheader("⬇️ تحميل الملفات")
 
-if st.button("⬇️ تنزيل PDF (صور فقط)"):
-    if df.empty:
-        st.warning("لا توجد صور للتحميل.")
-    else:
-        pdf_bytes = generate_pdf_only_images(df)
-        b64 = base64.b64encode(pdf_bytes).decode()
-        href = f'<a href="data:application/octet-stream;base64,{b64}" download="images_only.pdf">اضغط هنا لتحميل PDF الصور فقط</a>'
-        st.markdown(href, unsafe_allow_html=True)
+col1 = st.columns(1)[0]
+
+with col1:
+    if st.button("⬇️ تنزيل PDF بالصور فقط (مرتبة حسب التاريخ)"):
+        if df.empty:
+            st.warning("لا توجد صور للتحميل.")
+        else:
+            pdf_bytes = generate_pdf_only_images(df)
+            b64 = base64.b64encode(pdf_bytes).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="project_images.pdf">اضغط هنا لتحميل ملف PDF</a>'
+            st.markdown(href, unsafe_allow_html=True)
