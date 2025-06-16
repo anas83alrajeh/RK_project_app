@@ -3,7 +3,12 @@ import pandas as pd
 import os
 
 st.set_page_config(layout="centered")
-st.title("🗓️ مراحل إنجاز المشروع")
+st.markdown(
+    """
+    <h1 style='text-align: right; direction: rtl;'>🗓️ مراحل إنجاز المشروع</h1>
+    """,
+    unsafe_allow_html=True
+)
 
 DATA_PATH = "data/project_phases.csv"
 os.makedirs("data", exist_ok=True)
@@ -50,8 +55,13 @@ def safe_to_date(value):
 
 df = load_data()
 
+# تطبيق CSS لدعم الكتابة من اليمين لليسار RTL
 st.markdown("""
 <style>
+    body, div, input, label, textarea, select, button {
+        direction: rtl !important;
+        text-align: right !important;
+    }
     .phase-box {
         background-color: #f0f0f0;
         color: #000000;
@@ -70,12 +80,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# احسب نسبة الإنجاز
+# نسبة الإنجاز
 completed_phases = df["تم التنفيذ"].sum() if "تم التنفيذ" in df.columns else 0
 progress_percent = int((completed_phases / len(df)) * 100)
 st.progress(progress_percent / 100)
-st.markdown(f"### 🚀 نسبة إنجاز المشروع: {progress_percent}%")
+st.markdown(f"<h4 style='text-align: right; direction: rtl;'>🚀 نسبة إنجاز المشروع: {progress_percent}%</h4>", unsafe_allow_html=True)
 
+# عرض المراحل
 for idx, row in df.iterrows():
     st.markdown(f'<div class="phase-box">', unsafe_allow_html=True)
     st.markdown(f'<div class="phase-title">المرحلة {row["رقم المرحلة"]}: {row["اسم المرحلة"]}</div>', unsafe_allow_html=True)
@@ -112,7 +123,7 @@ for idx, row in df.iterrows():
             key=f"duration_{idx}"
         )
 
-    # Checkbox تنفيذ المرحلة
+    # تنفيذ المرحلة
     done = st.checkbox(
         "✅ تم التنفيذ",
         value=bool(row.get("تم التنفيذ", False)),
