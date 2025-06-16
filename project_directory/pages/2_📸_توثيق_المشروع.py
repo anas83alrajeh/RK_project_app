@@ -18,14 +18,13 @@ st.title("📸 صفحة توثيق المشروع")
 DATA_DIR = "data/documentation"
 META_FILE = os.path.join(DATA_DIR, "metadata.csv")
 UTILS_DIR = "utils"
-FONT_FILENAME = "Amiri-Regular.ttf"  # استخدام خط Amiri العربي
+FONT_FILENAME = "Amiri-Regular.ttf"
 FONT_PATH = os.path.join(UTILS_DIR, FONT_FILENAME)
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UTILS_DIR, exist_ok=True)
 
-# حجم تقريبي معروف للخط Amiri-Regular.ttf
-KNOWN_FONT_SIZE_BYTES = 4500000  # 4.5 ميجابايت تقريباً
+KNOWN_FONT_SIZE_BYTES = 4500000
 
 def download_font():
     if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < KNOWN_FONT_SIZE_BYTES * 0.9:
@@ -34,29 +33,22 @@ def download_font():
         try:
             r = requests.get(url, stream=True)
             r.raise_for_status()
-
             with open(FONT_PATH, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
-
             if os.path.getsize(FONT_PATH) >= KNOWN_FONT_SIZE_BYTES * 0.9:
                 st.success("تم تحميل الخط العربي Amiri بنجاح.")
             else:
-                st.error("فشل تحميل الخط: حجم الملف المحمل صغير جدًا أو غير مكتمل.")
+                st.error("فشل تحميل الخط: الملف صغير أو غير مكتمل.")
                 if os.path.exists(FONT_PATH):
                     os.remove(FONT_PATH)
-        except requests.exceptions.RequestException as e:
-            st.error(f"فشل تحميل الخط بسبب مشكلة في الشبكة: {e}")
-            if os.path.exists(FONT_PATH):
-                os.remove(FONT_PATH)
         except Exception as e:
-            st.error(f"حدث خطأ غير متوقع أثناء تحميل الخط: {e}")
+            st.error(f"خطأ أثناء تحميل الخط: {e}")
             if os.path.exists(FONT_PATH):
                 os.remove(FONT_PATH)
 
 download_font()
 
-# مفاتيح الجلسة
 if "should_rerun" not in st.session_state:
     st.session_state.should_rerun = False
 if "desc_val" not in st.session_state:
@@ -65,8 +57,7 @@ if "upload_key" not in st.session_state:
     st.session_state.upload_key = str(uuid.uuid4())
 
 if not os.path.exists(META_FILE):
-    df = pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
-    df.to_csv(META_FILE, index=False, encoding="utf-8")
+    pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"]).to_csv(META_FILE, index=False, encoding="utf-8")
 
 def load_df():
     try:
@@ -81,15 +72,12 @@ def save_df(df):
 def add_entry(date, description, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     img_path = os.path.join(DATA_DIR, img_id)
-
     if image.mode in ("RGBA", "P"):
         image = image.convert("RGB")
     image.save(img_path)
-
     df = load_df()
     df.loc[len(df)] = [img_id, description, date]
     save_df(df)
-
     st.session_state.desc_val = ""
     st.session_state.upload_key = str(uuid.uuid4())
     st.session_state.should_rerun = True
@@ -113,7 +101,6 @@ with st.form("image_form"):
     desc = st.text_input("الوصف", value=st.session_state.desc_val)
     img_file = st.file_uploader("تحميل الصورة", type=["jpg", "jpeg", "png"], key=st.session_state.upload_key)
     submitted = st.form_submit_button("إضافة")
-
     if submitted:
         if not img_file:
             st.error("يرجى رفع صورة.")
@@ -140,13 +127,11 @@ else:
     for idx, row in df.iterrows():
         cols = st.columns([1, 5, 1])
         img_path = os.path.join(DATA_DIR, row["الصورة"])
-
         with cols[0]:
             if os.path.exists(img_path):
                 st.image(img_path)
             else:
                 st.warning("❌ الصورة غير موجودة")
-
         with cols[1]:
             st.markdown(
                 f"""
@@ -169,79 +154,62 @@ def reshape_arabic_text(text):
 def generate_pdf(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
-
     if not os.path.exists(FONT_PATH):
         st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
         return None
-
     pdf.add_font('Amiri', '', FONT_PATH, uni=True)
     pdf.set_font("Amiri", size=12)
-
     for idx, row in df.iterrows():
         pdf.add_page()
-
-        # صياغة النص العربي لدعم RTL
         date_text = reshape_arabic_text(f"📅 التاريخ: {row['التاريخ']}")
         desc_text = reshape_arabic_text(f"📝 الوصف: {row['الوصف']}")
-
-        # النص بمحاذاة يمين
         pdf.multi_cell(0, 10, f"{date_text}\n{desc_text}", align='R')
         pdf.ln(5)
-
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
             max_width = pdf.w - 20
             max_height = pdf.h - pdf.get_y() - 20
-
             with Image.open(img_path) as img:
                 width_px, height_px = img.size
-
             width_mm = width_px * 0.264583
             height_mm = height_px * 0.264583
-
             scale = min(max_width / width_mm, max_height / height_mm, 1)
             disp_width = width_mm * scale
             disp_height = height_mm * scale
-
             pdf.image(img_path, x=(pdf.w - disp_width) / 2, y=pdf.get_y(), w=disp_width, h=disp_height)
             pdf.ln(disp_height + 5)
-
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return pdf_bytes
 
-# **دالة جديدة لتوليد PDF يحتوي الصور فقط بدون أي نصوص، مرتبة حسب التاريخ**
+# دالة توليد PDF يحوي الصور فقط بدون نصوص، الصور مرتبة حسب التاريخ
 def generate_pdf_only_images(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
-
-    # ترتيب الصور حسب التاريخ تصاعدياً
     df_sorted = df.sort_values(by="التاريخ")
-
     for _, row in df_sorted.iterrows():
         pdf.add_page()
         img_path = os.path.join(DATA_DIR, row["الصورة"])
         if os.path.exists(img_path):
             with Image.open(img_path) as img:
                 width_px, height_px = img.size
-
             width_mm = width_px * 0.264583
             height_mm = height_px * 0.264583
-
             max_width = pdf.w - 20
             max_height = pdf.h - 20
-
             scale = min(max_width / width_mm, max_height / height_mm, 1)
             disp_width = width_mm * scale
             disp_height = height_mm * scale
-
             x = (pdf.w - disp_width) / 2
             y = (pdf.h - disp_height) / 2
-
             pdf.image(img_path, x=x, y=y, w=disp_width, h=disp_height)
-
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return pdf_bytes
 
 st.markdown("---")
-st.subheader("⬇️ تحميل جميع الصور مع التوثيق كـ PDF")
-if st.button("
+st.subheader("⬇️ تحميل الملفات")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("📄 تنزيل PDF مع التوثيق (نص + صور)"):
+        if df.empty
