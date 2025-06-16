@@ -7,7 +7,7 @@ st.set_page_config(layout="centered")
 DATA_PATH = "data/project_phases.csv"
 os.makedirs("data", exist_ok=True)
 
-# ✅ مراحل المشروع العشر
+# المراحل العشر المطلوبة
 phase_names = [
     "تحديد الأرض",
     "استخراج التراخيص",
@@ -34,7 +34,11 @@ default_phases = [
 
 def load_data():
     if os.path.exists(DATA_PATH):
-        return pd.read_csv(DATA_PATH)
+        df = pd.read_csv(DATA_PATH)
+        # ✅ إذا كانت البيانات أقل من 10 مراحل، إعادة تعيين الملف
+        if len(df) < 10:
+            return pd.DataFrame(default_phases)
+        return df
     else:
         return pd.DataFrame(default_phases)
 
@@ -116,7 +120,6 @@ for idx, row in df.iterrows():
             key=f"duration_{idx}"
         )
 
-    # Checkbox لتنفيذ المرحلة
     done = st.checkbox("✅ تم التنفيذ", value=bool(row.get("تم التنفيذ", False)), key=f"done_{idx}")
     df.at[idx, "تم التنفيذ"] = done
     if done:
@@ -124,7 +127,7 @@ for idx, row in df.iterrows():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ✅ حساب نسبة الإنجاز
+# ✅ عرض نسبة الإنجاز
 progress_percent = completed_count * 10
 st.progress(progress_percent / 100)
 st.markdown(f"<h4 style='text-align: right; direction: rtl;'>🚀 نسبة إنجاز المشروع: {progress_percent}%</h4>", unsafe_allow_html=True)
