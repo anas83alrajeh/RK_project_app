@@ -21,7 +21,7 @@ phase_names = [
     "إعداد تقرير التسليم"
 ]
 
-# إنشاء البيانات الافتراضية
+# البيانات الافتراضية
 default_phases = [
     {
         "رقم المرحلة": i + 1,
@@ -33,18 +33,27 @@ default_phases = [
     } for i, name in enumerate(phase_names)
 ]
 
+# تحميل البيانات مع تحويل عمود "تم التنفيذ" إلى Boolean
 def load_data():
     if os.path.exists(DATA_PATH):
         df = pd.read_csv(DATA_PATH)
+        # التأكد من وجود العمود وتحويله إلى Boolean
+        if "تم التنفيذ" in df.columns:
+            df["تم التنفيذ"] = df["تم التنفيذ"].astype(str).str.lower().isin(["true", "1"])
+        else:
+            df["تم التنفيذ"] = False
+        # التحقق من أن عدد المراحل مكتمل
         if len(df) < 10:
             return pd.DataFrame(default_phases)
         return df
     else:
         return pd.DataFrame(default_phases)
 
+# حفظ البيانات
 def save_data(df):
     df.to_csv(DATA_PATH, index=False, encoding="utf-8")
 
+# التأكد من تحويل التاريخ بطريقة آمنة
 def safe_to_date(value):
     try:
         if pd.isna(value) or value == "" or value is None:
@@ -54,15 +63,16 @@ def safe_to_date(value):
     except Exception:
         return None
 
+# تحميل الجدول
 df = load_data()
 
-# ✅ حساب نسبة الإنجاز في الأعلى
+# حساب نسبة الإنجاز
 completed_count = df["تم التنفيذ"].sum() if "تم التنفيذ" in df.columns else 0
 progress_percent = int(completed_count) * 10
 st.markdown(f"<h4 style='text-align: right; direction: rtl;'>🚀 نسبة إنجاز المشروع: {progress_percent}%</h4>", unsafe_allow_html=True)
 st.progress(progress_percent / 100)
 
-# ✅ تنسيق RTL
+# تنسيق RTL للواجهة
 st.markdown("""
 <style>
     body, div, input, label, textarea, select, button {
@@ -87,7 +97,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ✅ عرض تفاصيل كل مرحلة
+# عرض المراحل
 for idx, row in df.iterrows():
     st.markdown(f'<div class="phase-box">', unsafe_allow_html=True)
     st.markdown(f'<div class="phase-title">المرحلة {row["رقم المرحلة"]}: {row["اسم المرحلة"]}</div>', unsafe_allow_html=True)
@@ -124,12 +134,13 @@ for idx, row in df.iterrows():
             key=f"duration_{idx}"
         )
 
+    # مربع تم التنفيذ
     done = st.checkbox("✅ تم التنفيذ", value=bool(row.get("تم التنفيذ", False)), key=f"done_{idx}")
     df.at[idx, "تم التنفيذ"] = done
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ✅ زر الحفظ
+# زر حفظ
 if st.button("💾 حفظ المراحل"):
     save_data(df)
     st.success("✅ تم حفظ البيانات وتحديث نسبة الإنجاز.")
