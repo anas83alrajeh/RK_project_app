@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
+from io import BytesIO
+from fpdf import FPDF
 
 st.set_page_config(layout="centered")
 
@@ -56,6 +58,44 @@ def safe_to_date(value):
     except Exception:
         return None
 
+# دالة لتحويل DataFrame إلى ملف Excel في الذاكرة
+def to_excel(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='openpyxl')
+    df.to_excel(writer, index=False, sheet_name='Project Phases')
+    writer.save()
+    processed_data = output.getvalue()
+    return processed_data
+
+# دالة لتوليد ملف PDF يحتوي على جدول البيانات (نسخة مبسطة)
+def to_pdf(df):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, "تقرير مراحل المشروع", ln=True, align='C')
+
+    col_widths = [15, 50, 30, 30, 30, 30]  # عرض الأعمدة تقريبًا
+
+    # رؤوس الأعمدة (بالعربي)
+    headers = ["رقم", "اسم المرحلة", "تاريخ البدء", "تاريخ النهاية", "المدة الزمنية", "تم التنفيذ"]
+    for i, header in enumerate(headers):
+        pdf.cell(col_widths[i], 10, header, border=1, align='C')
+    pdf.ln()
+
+    # البيانات
+    for idx, row in df.iterrows():
+        pdf.cell(col_widths[0], 10, str(row["رقم المرحلة"]), border=1)
+        pdf.cell(col_widths[1], 10, str(row["اسم المرحلة"]), border=1)
+        pdf.cell(col_widths[2], 10, str(row["تاريخ البدء"]), border=1)
+        pdf.cell(col_widths[3], 10, str(row["تاريخ النهاية"]), border=1)
+        pdf.cell(col_widths[4], 10, str(row["المدة الزمنية"]), border=1)
+        done_text = "نعم" if row["تم التنفيذ"] else "لا"
+        pdf.cell(col_widths[5], 10, done_text, border=1)
+        pdf.ln()
+
+    pdf_output = pdf.output(dest='S').encode('latin1')
+    return pdf_output
+
 df = load_data()
 
 # تنسيق RTL
@@ -88,6 +128,25 @@ for idx, row in df.iterrows():
     key = f"done_{idx}"
     if key not in st.session_state:
         st.session_state[key] = row.get("تم التنفيذ", False)
+
+# زر تحميل Excel و PDF في الأعلى
+col_down1, col_down2 = st.columns(2)
+with col_down1:
+    excel_data = to_excel(df)
+    st.download_button(
+        label="⬇️ تحميل البيانات كملف Excel",
+        data=excel_data,
+        file_name="project_phases.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+with col_down2:
+    pdf_data = to_pdf(df)
+    st.download_button(
+        label="⬇️ تحميل البيانات كملف PDF",
+        data=pdf_data,
+        file_name="project_phases.pdf",
+        mime="application/pdf"
+    )
 
 # عرض مراحل المشروع مع تحديث القيمة مباشرة من session_state
 for idx, row in df.iterrows():
@@ -126,23 +185,18 @@ for idx, row in df.iterrows():
             key=f"duration_{idx}"
         )
 
-    # هنا checkbox مع ربطه بالـ session_state للتحديث الفوري
     done = st.checkbox("✅ تم التنفيذ", key=f"done_{idx}")
     df.at[idx, "تم التنفيذ"] = done
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# حساب نسبة الإنجاز بناءً على checkboxes مباشرة
 completed_count = sum([st.session_state[f"done_{i}"] for i in range(len(df))])
 progress_percent = completed_count * 10
 
-# عرض نسبة الإنجاز أعلى الصفحة
 st.markdown(f"<h4 style='text-align: right; direction: rtl;'>🚀 نسبة إنجاز المشروع: {progress_percent}%</h4>", unsafe_allow_html=True)
 st.progress(progress_percent / 100)
 
-# زر حفظ البيانات فقط
 if st.button("💾 حفظ المراحل"):
-    # تحديث عمود تم التنفيذ في df من session_state قبل الحفظ
     for i in range(len(df)):
         df.at[i, "تم التنفيذ"] = st.session_state[f"done_{i}"]
     save_data(df)
