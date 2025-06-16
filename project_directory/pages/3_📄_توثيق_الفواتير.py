@@ -20,11 +20,9 @@ tasks_df = load_df("data/tasks.csv")
 total_tasks_cost = tasks_df["التكلفة"].sum() if not tasks_df.empty else 0
 st.markdown(f"### 💰 إجمالي تكاليف المهام: {total_tasks_cost:,.2f} دولار")
 
-# حالة لإعادة تشغيل الصفحة
 if "should_rerun" not in st.session_state:
     st.session_state.should_rerun = False
 
-# مفاتيح الجلسة لتفريغ الحقول بعد الإضافة
 if "name_value" not in st.session_state:
     st.session_state.name_value = ""
 if "value_amount" not in st.session_state:
@@ -35,8 +33,6 @@ if "upload_key" not in st.session_state:
 def add_invoice(date, name, value, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     image_path = os.path.join(IMAGE_DIR, img_id)
-    
-    # معالجة صيغة الصورة وحجمها
     if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image = image.convert("RGB")
     max_width = 600
@@ -65,7 +61,6 @@ def delete_invoice(idx):
     save_df(df, INVOICE_PATH)
     st.session_state.should_rerun = True
 
-# نموذج إضافة فاتورة
 with st.form("invoice_form"):
     date = st.date_input("تاريخ الفاتورة")
     name = st.text_input("اسم الفاتورة", value=st.session_state.name_value, key="name_input")
@@ -84,14 +79,11 @@ with st.form("invoice_form"):
             img_obj = Image.open(img)
             add_invoice(date, name, value, img_obj)
             st.success("✅ تمت إضافة الفاتورة")
-
-            # إعادة تعيين القيم لتفريغ الحقول
             st.session_state.name_value = ""
             st.session_state.value_amount = 0.0
-            st.session_state.upload_key = str(uuid.uuid4())  # تغيير المفتاح لمسح الصورة
+            st.session_state.upload_key = str(uuid.uuid4())
             st.session_state.should_rerun = True
 
-# إعادة تشغيل الصفحة بعد الإضافة أو الحذف
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
     try:
@@ -100,7 +92,6 @@ if st.session_state.should_rerun:
         logging.error(f"Error during rerun: {e}")
         components.html("<script>window.location.reload()</script>", height=0)
 
-# عرض الفواتير
 invoice_df = load_df(INVOICE_PATH)
 if invoice_df.empty or not set(["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"]).issubset(invoice_df.columns):
     invoice_df = pd.DataFrame(columns=["التاريخ", "اسم الفاتورة", "القيمة", "الصورة"])
@@ -139,12 +130,11 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_invoice(idx)
 
-# ملخص الفواتير
 total_invoices = invoice_df["القيمة"].sum()
 st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} دولار")
 st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} دولار")
 
-# --- إضافة زر تحميل PDF للصور ---
+# --- هنا الإضافة: زر تحميل PDF أسفل الصفحة ---
 def generate_pdf_from_images(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
