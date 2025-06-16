@@ -85,3 +85,14 @@ area = st.number_input("📐 المساحة الكلية بالمتر المرب
 if area and total > 0:
     cost_per_meter = total / area
     st.markdown(f"### 💸 تكلفة المتر المربع: {cost_per_meter:,.2f} دولار")
+
+# تحويل DataFrame إلى CSV
+csv_data = st.session_state.df.to_csv(index=False, encoding="utf-8")
+
+# زر تحميل ملف CSV
+st.download_button(
+    label="⬇️ تنزيل بيانات المهام (CSV)",
+    data=csv_data,
+    file_name="tasks_data.csv",
+    mime="text/csv"
+)
