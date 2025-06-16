@@ -9,8 +9,6 @@ import streamlit.components.v1 as components
 from fpdf import FPDF
 import base64
 import requests
-import arabic_reshaper
-from bidi.algorithm import get_display
 
 st.set_page_config(layout="centered")
 st.title("📸 صفحة توثيق المشروع")
@@ -51,34 +49,32 @@ download_font()
 
 if "should_rerun" not in st.session_state:
     st.session_state.should_rerun = False
-if "desc_val" not in st.session_state:
-    st.session_state.desc_val = ""
 if "upload_key" not in st.session_state:
     st.session_state.upload_key = str(uuid.uuid4())
 
 if not os.path.exists(META_FILE):
-    pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"]).to_csv(META_FILE, index=False, encoding="utf-8")
+    # عمود الوصف تم حذفه نهائياً
+    pd.DataFrame(columns=["الصورة", "التاريخ"]).to_csv(META_FILE, index=False, encoding="utf-8")
 
 def load_df():
     try:
         return pd.read_csv(META_FILE)
     except Exception as e:
         logging.error(f"Error reading metadata file: {e}")
-        return pd.DataFrame(columns=["الصورة", "الوصف", "التاريخ"])
+        return pd.DataFrame(columns=["الصورة", "التاريخ"])
 
 def save_df(df):
     df.to_csv(META_FILE, index=False, encoding="utf-8")
 
-def add_entry(date, description, image):
+def add_entry(date, image):
     img_id = str(uuid.uuid4()) + ".jpg"
     img_path = os.path.join(DATA_DIR, img_id)
     if image.mode in ("RGBA", "P"):
         image = image.convert("RGB")
     image.save(img_path)
     df = load_df()
-    df.loc[len(df)] = [img_id, description, date]
+    df.loc[len(df)] = [img_id, date]
     save_df(df)
-    st.session_state.desc_val = ""
     st.session_state.upload_key = str(uuid.uuid4())
     st.session_state.should_rerun = True
 
@@ -98,17 +94,14 @@ def delete_entry(idx):
 st.subheader("➕ إضافة صورة جديدة")
 with st.form("image_form"):
     date = st.date_input("تاريخ الإضافة", value=datetime.today())
-    desc = st.text_input("الوصف", value=st.session_state.desc_val)
     img_file = st.file_uploader("تحميل الصورة", type=["jpg", "jpeg", "png"], key=st.session_state.upload_key)
     submitted = st.form_submit_button("إضافة")
     if submitted:
         if not img_file:
             st.error("يرجى رفع صورة.")
-        elif desc.strip() == "":
-            st.error("يرجى كتابة وصف.")
         else:
             img_obj = Image.open(img_file)
-            add_entry(date, desc, img_obj)
+            add_entry(date, img_obj)
 
 if st.session_state.should_rerun:
     st.session_state.should_rerun = False
@@ -136,8 +129,7 @@ else:
             st.markdown(
                 f"""
                 <div style="direction: rtl; text-align: right; background-color: #000; color: #fff; padding: 10px; border-radius: 8px;">
-                    <strong>📅 التاريخ:</strong> {row["التاريخ"]}<br>
-                    <strong>📝 الوصف:</strong> {row["الوصف"]}
+                    <strong>📅 التاريخ:</strong> {row["التاريخ"]}
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -146,42 +138,6 @@ else:
             if st.button("🗑️ حذف", key=f"delete_{idx}"):
                 delete_entry(idx)
 
-def reshape_arabic_text(text):
-    reshaped_text = arabic_reshaper.reshape(text)
-    bidi_text = get_display(reshaped_text)
-    return bidi_text
-
-def generate_pdf(df):
-    pdf = FPDF(orientation='P', unit='mm', format='A4')
-    pdf.set_auto_page_break(auto=True, margin=15)
-    if not os.path.exists(FONT_PATH):
-        st.error("ملف الخط غير موجود، يرجى التأكد من تحميله.")
-        return None
-    pdf.add_font('Amiri', '', FONT_PATH, uni=True)
-    pdf.set_font("Amiri", size=12)
-    for idx, row in df.iterrows():
-        pdf.add_page()
-        date_text = reshape_arabic_text(f"📅 التاريخ: {row['التاريخ']}")
-        desc_text = reshape_arabic_text(f"📝 الوصف: {row['الوصف']}")
-        pdf.multi_cell(0, 10, f"{date_text}\n{desc_text}", align='R')
-        pdf.ln(5)
-        img_path = os.path.join(DATA_DIR, row["الصورة"])
-        if os.path.exists(img_path):
-            max_width = pdf.w - 20
-            max_height = pdf.h - pdf.get_y() - 20
-            with Image.open(img_path) as img:
-                width_px, height_px = img.size
-            width_mm = width_px * 0.264583
-            height_mm = height_px * 0.264583
-            scale = min(max_width / width_mm, max_height / height_mm, 1)
-            disp_width = width_mm * scale
-            disp_height = height_mm * scale
-            pdf.image(img_path, x=(pdf.w - disp_width) / 2, y=pdf.get_y(), w=disp_width, h=disp_height)
-            pdf.ln(disp_height + 5)
-    pdf_bytes = pdf.output(dest='S').encode('latin1')
-    return pdf_bytes
-
-# دالة توليد PDF يحوي الصور فقط بدون نصوص، الصور مرتبة حسب التاريخ
 def generate_pdf_only_images(df):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -208,8 +164,11 @@ def generate_pdf_only_images(df):
 st.markdown("---")
 st.subheader("⬇️ تحميل الملفات")
 
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("📄 تنزيل PDF مع التوثيق (نص + صور)"):
-        if df.empty
+if st.button("⬇️ تنزيل PDF (صور فقط)"):
+    if df.empty:
+        st.warning("لا توجد صور للتحميل.")
+    else:
+        pdf_bytes = generate_pdf_only_images(df)
+        b64 = base64.b64encode(pdf_bytes).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="images_only.pdf">اضغط هنا لتحميل PDF الصور فقط</a>'
+        st.markdown(href, unsafe_allow_html=True)
