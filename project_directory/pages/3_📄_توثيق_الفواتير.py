@@ -6,6 +6,8 @@ import uuid
 from utils.helpers import load_df, save_df
 import logging
 import streamlit.components.v1 as components
+from fpdf import FPDF
+import base64
 
 st.set_page_config(layout="centered")
 st.title("📄 صفحة توثيق الفواتير")
@@ -141,3 +143,38 @@ else:
 total_invoices = invoice_df["القيمة"].sum()
 st.markdown(f"### 💳 مجموع الفواتير: {total_invoices:,.2f} دولار")
 st.markdown(f"### 🧾 المبلغ المتبقي: {total_tasks_cost - total_invoices:,.2f} دولار")
+
+# --- إضافة زر تحميل PDF للصور ---
+def generate_pdf_from_images(df):
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.set_auto_page_break(auto=True, margin=15)
+    df_sorted = df.sort_values(by="التاريخ")
+    for _, row in df_sorted.iterrows():
+        img_path = os.path.join(IMAGE_DIR, row["الصورة"])
+        if os.path.exists(img_path):
+            pdf.add_page()
+            with Image.open(img_path) as img:
+                width_px, height_px = img.size
+            width_mm = width_px * 0.264583  # تحويل بيكسل إلى ملم
+            height_mm = height_px * 0.264583
+            max_width = pdf.w - 20  # هامش 10 ملم على كل جانب
+            max_height = pdf.h - 20
+            scale = min(max_width / width_mm, max_height / height_mm, 1)
+            disp_width = width_mm * scale
+            disp_height = height_mm * scale
+            x = (pdf.w - disp_width) / 2
+            y = (pdf.h - disp_height) / 2
+            pdf.image(img_path, x=x, y=y, w=disp_width, h=disp_height)
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    return pdf_bytes
+
+st.markdown("---")
+
+if st.button("⬇️ تحميل جميع صور الفواتير كملف PDF"):
+    if invoice_df.empty:
+        st.warning("لا توجد فواتير لتحويلها إلى PDF.")
+    else:
+        pdf_bytes = generate_pdf_from_images(invoice_df)
+        b64 = base64.b64encode(pdf_bytes).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="invoices_images.pdf">اضغط هنا لتحميل ملف PDF</a>'
+        st.markdown(href, unsafe_allow_html=True)
