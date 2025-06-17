@@ -148,19 +148,16 @@ if st.button("💾 حفظ المراحل"):
 if st.button("🗑️ إعادة تعيين المشروع"):
     df = pd.DataFrame(default_phases)
     save_data(df)
+
+    # تحديث الحالة قبل إعادة تحميل الصفحة
     for i in range(len(default_phases)):
         st.session_state[f"done_{i}"] = False
+        st.session_state[f"start_{i}"] = None
+        st.session_state[f"end_{i}"] = None
+        st.session_state[f"duration_{i}"] = ""
+
     st.success("✅ تم مسح البيانات وإعادة تعيين المشروع.")
+    
+    # يجب أن يكون في النهاية
     st.experimental_rerun()
 
-def convert_df_to_csv(df):
-    return df.to_csv(index=False, encoding="utf-8")
-
-csv_data = convert_df_to_csv(df)
-
-st.download_button(
-    label="⬇️ تنزيل بيانات المشروع (CSV)",
-    data=csv_data,
-    file_name="project_phases.csv",
-    mime="text/csv"
-)
