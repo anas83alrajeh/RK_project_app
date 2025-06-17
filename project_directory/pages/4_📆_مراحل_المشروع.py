@@ -144,6 +144,15 @@ if st.button("💾 حفظ المراحل"):
     save_data(df)
     st.success("✅ تم حفظ البيانات وتحديث نسبة الإنجاز.")
 
+# ✅ زر لإعادة تعيين المشروع
+if st.button("🗑️ إعادة تعيين المشروع"):
+    df = pd.DataFrame(default_phases)
+    save_data(df)
+    for i in range(len(default_phases)):
+        st.session_state[f"done_{i}"] = False
+    st.success("✅ تم مسح البيانات وإعادة تعيين المشروع.")
+    st.experimental_rerun()
+
 def convert_df_to_csv(df):
     return df.to_csv(index=False, encoding="utf-8")
 
