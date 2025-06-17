@@ -144,4 +144,14 @@ if st.button("💾 حفظ المراحل"):
     save_data(df)
     st.success("✅ تم حفظ البيانات وتحديث نسبة الإنجاز.")
 
+def convert_df_to_csv(df):
+    return df.to_csv(index=False, encoding="utf-8")
 
+csv_data = convert_df_to_csv(df)
+
+st.download_button(
+    label="⬇️ تنزيل بيانات المشروع (CSV)",
+    data=csv_data,
+    file_name="project_phases.csv",
+    mime="text/csv"
+)   
