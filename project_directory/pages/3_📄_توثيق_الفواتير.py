@@ -130,7 +130,7 @@ else:
                     border-radius: 8px;">
                     <strong>📅 التاريخ:</strong> {row['التاريخ']}<br>
                     <strong>📄 اسم الفاتورة:</strong> {row['اسم الفاتورة']}<br>
-                    <strong>💵 القيمة:</strong> {row['القيمة']:,.2f} ريال
+                    <strong>💵 القيمة:</strong> {row['القيمة']:,.2f} دولار
                 </div>
                 """,
                 unsafe_allow_html=True
